@@ -4,9 +4,7 @@ Code for **KEEP-Bench: Evaluating Evidence Preservation in Context Compression**
 
 KEEP-Bench tests whether a context compressor keeps the evidence needed to answer a question. Each of its 4,102 cases is annotated with the evidence propositions a faithful compression must retain, and an LLM judge checks every proposition directly in the compressed context. The cases cover three evidence structures: parallel evidence (two valid interpretations), conditional evidence (a claim that holds only under a qualifier) and imbalanced evidence (dominant and minority answer perspectives).
 
-- Paper: coming soon
-- Dataset: [uclanlp/KEEP-Bench](https://huggingface.co/datasets/uclanlp/KEEP-Bench)
-- Website: coming soon
+Paper (coming soon) · [Dataset](https://huggingface.co/datasets/uclanlp/KEEP-Bench) · [Website](https://pluslabnlp.github.io/KEEP-Bench/)
 
 ## Repository structure
 
