@@ -1,0 +1,1493 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="KEEP-Bench evaluates whether context compression preserves the evidence a question needs: 4,102 cases across parallel, conditional and imbalanced evidence structures.">
+<meta property="og:title" content="KEEP-Bench: Evaluating Evidence Preservation in Context Compression">
+<meta property="og:description" content="A benchmark that checks compressed contexts directly for the evidence each question needs.">
+<meta property="og:type" content="website">
+<style>[hidden]{display:none!important} body{margin:0} img{max-width:100%}</style>
+<title>KEEP-Bench</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Schibsted+Grotesk:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one left-aligned reading column (~1120px) on cool paper; evidence is shown the way an annotator marks a document:
+   highlighter for kept evidence, a redaction bar for lost evidence. */
+:root {
+  --paper: #f6f7f9;
+  --sheet: #ffffff;
+  --ink: #16202f;
+  --muted: #5a6475;
+  --rule: #d9dee6;
+  --accent: #1f47c9;
+  --mark-a: #ffe45e;
+  --mark-b: #ecb8f5;
+  --mark-ink: #16202f;
+  --redact: #16202f;
+  --kept: #17845a;
+  --lost: #c43341;
+  --fam-ded: #7b8597;
+  --fam-llama: #2f78d4;
+  --fam-qwen: #dd7a1f;
+  --fam-gemma: #0f998a;
+  --fam-prop: #c2417a;
+  --font-ui: "Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --font-doc: "Newsreader", Georgia, "Times New Roman", serif;
+  --font-code: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  --step--1: 0.84rem;
+  --step-0: 1rem;
+  --step-1: 1.2rem;
+  --step-2: 1.6rem;
+  --step-3: 2.3rem;
+  --step-4: clamp(3.2rem, 9vw, 6.4rem);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0f141c; --sheet: #161d28; --ink: #e6eaf1; --muted: #9aa5b7; --rule: #2a3444;
+    --accent: #7d9cff; --mark-a: #e9cf45; --mark-b: #d79be4; --mark-ink: #141a24; --redact: #5d6879;
+    --kept: #4cc28e; --lost: #ff7b86;
+    --fam-ded: #9aa4b5; --fam-llama: #69a5f0; --fam-qwen: #f0a050; --fam-gemma: #3cc6b4; --fam-prop: #ec6fa5;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0f141c; --sheet: #161d28; --ink: #e6eaf1; --muted: #9aa5b7; --rule: #2a3444;
+  --accent: #7d9cff; --mark-a: #e9cf45; --mark-b: #d79be4; --mark-ink: #141a24; --redact: #5d6879;
+  --kept: #4cc28e; --lost: #ff7b86;
+  --fam-ded: #9aa4b5; --fam-llama: #69a5f0; --fam-qwen: #f0a050; --fam-gemma: #3cc6b4; --fam-prop: #ec6fa5;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--paper); color: var(--ink);
+  font-family: var(--font-ui); font-size: var(--step-0); line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1120px; margin: 0 auto; }
+a { color: var(--accent); text-underline-offset: 3px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+h1, h2, h3 { text-wrap: balance; line-height: 1.15; margin: 0; }
+h2 { font-size: var(--step-3); font-weight: 700; letter-spacing: -0.02em; }
+h3 { font-size: var(--step-1); font-weight: 600; }
+p { margin: 0; }
+.lede { max-width: none; color: var(--muted); font-size: 1.06rem; }
+.num { font-variant-numeric: normal; }
+
+/* top bar */
+.topbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding-block: 18px; }
+.brand { white-space: nowrap; font-weight: 800; letter-spacing: -0.01em; color: var(--ink); text-decoration: none; }
+.toplinks { display: flex; gap: 18px; flex-wrap: wrap; }
+.toplinks a { color: var(--muted); text-decoration: none; font-weight: 500; }
+.toplinks a:hover { color: var(--ink); }
+
+/* hero */
+.hero { padding-block: 40px 28px; display: grid; gap: 22px; }
+.wordmark { font-size: var(--step-4); font-weight: 800; letter-spacing: -0.045em; line-height: 0.95; margin: 0; position: relative; display: inline-block; justify-self: start; }
+.wordmark span { position: relative; z-index: 1; }
+.wordmark::before {
+  content: ""; position: absolute; left: -0.06em; right: -0.08em; bottom: 0.06em; height: 0.42em;
+  background: var(--mark-a); border-radius: 0.08em 0.2em 0.12em 0.25em; transform: skew(-8deg) rotate(-0.6deg);
+  transform-origin: left center; animation: swipe 0.9s cubic-bezier(.6,.05,.3,1) 0.25s both;
+}
+@keyframes swipe { from { transform: skew(-8deg) rotate(-0.6deg) scaleX(0); } to { transform: skew(-8deg) rotate(-0.6deg) scaleX(1); } }
+.subtitle { font-size: var(--step-2); font-weight: 500; letter-spacing: -0.015em; max-width: 26ch; }
+.authors { color: var(--muted); max-width: 70ch; }
+.authors strong { color: var(--ink); font-weight: 600; }
+.buttons { display: flex; flex-wrap: wrap; gap: 10px; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 999px;
+  border: 1.5px solid var(--ink); color: var(--ink); text-decoration: none; font-weight: 600; font-size: 0.95rem; background: transparent;
+}
+.btn.primary { background: var(--ink); color: var(--paper); }
+.btn:hover { background: var(--ink); color: var(--paper); }
+.btn[aria-disabled="true"] { opacity: 0.45; pointer-events: none; }
+.btn svg { width: 16px; height: 16px; fill: currentColor; }
+
+/* demo */
+.demo { background: var(--sheet); border: 1px solid var(--rule); border-radius: 14px; padding: 22px; display: grid; gap: 18px; }
+.demo-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.demo-head h2 { font-size: var(--step-2); }
+.steps { display: flex; gap: 6px; flex-wrap: wrap; }
+.steps button {
+  font: inherit; font-size: var(--step--1); padding: 6px 12px; border-radius: 999px; border: 1px solid var(--rule);
+  background: transparent; color: var(--muted); cursor: pointer;
+}
+.steps button[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.demo-grid { display: grid; grid-template-columns: 1.05fr 0.95fr 1.1fr; gap: 18px; align-items: start; }
+.pane { min-width: 0; display: grid; gap: 10px; transition: opacity .45s ease; }
+.pane-label { font-size: var(--step--1); color: var(--muted); font-weight: 600; }
+.doc { font-family: var(--font-doc); font-size: 1.05rem; line-height: 1.6; }
+.doc .q { font-family: var(--font-ui); font-size: 0.98rem; font-weight: 500; line-height: 1.45; padding-bottom: 10px; border-bottom: 1px dashed var(--rule); margin-bottom: 10px; }
+.hl { padding: 0 0.15em; border-radius: 3px; color: var(--mark-ink); box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.hl.a { background: var(--mark-a); }
+.hl.b { background: var(--mark-b); }
+.hl sub { font-family: var(--font-ui); font-size: 0.68em; font-weight: 700; margin-left: 2px; }
+.fade { color: var(--muted); }
+.squiggle { text-decoration: underline wavy var(--lost); text-decoration-thickness: 1.5px; text-underline-offset: 4px; }
+.binding-note { font-family: var(--font-ui); font-size: var(--step--1); color: var(--lost); }
+.arrow { font-size: var(--step--1); color: var(--muted); display: flex; align-items: center; gap: 8px; }
+.arrow::before { content: ""; height: 1px; flex: 0 0 28px; background: var(--muted); }
+.check { border: 1px solid var(--rule); border-radius: 10px; padding: 14px; display: grid; gap: 10px; transition: opacity .45s ease, border-color .45s ease; }
+.check h3 { font-size: 1rem; }
+.check .row { display: flex; justify-content: space-between; gap: 10px; font-size: 0.95rem; }
+.verdict { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 0.9rem; padding: 3px 10px; border-radius: 999px; border: 1.5px solid currentColor; }
+.verdict.pass { color: var(--kept); }
+.verdict.fail { color: var(--lost); }
+.verdict-line { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 0.9rem; color: var(--muted); }
+.props { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.props li { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: baseline; font-size: 0.92rem; }
+.props .pid { font-weight: 700; }
+.tag { font-size: 0.78rem; font-weight: 600; padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
+.tag.kept { color: var(--kept); border: 1px solid var(--kept); }
+.tag.lost { color: var(--lost); border: 1px solid var(--lost); }
+.props li .tag { transition: opacity .3s ease; }
+.demo[data-step="0"] .p-comp, .demo[data-step="0"] .c-qa, .demo[data-step="0"] .c-keep,
+.demo[data-step="1"] .c-qa, .demo[data-step="1"] .c-keep,
+.demo[data-step="2"] .c-keep { opacity: 0.32; }
+.demo[data-step="3"] .c-keep { border-color: var(--ink); }
+.demo:not([data-step="3"]) .props .tag { opacity: 0; }
+.demo-foot { font-size: var(--step--1); color: var(--muted); max-width: 90ch; }
+
+/* sections */
+section.block { padding-block: 64px 8px; display: grid; gap: 22px; }
+section.block > *, .split > *, .struct > *, .case > * { min-width: 0; }
+.split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 40px; align-items: start; }
+
+/* pilot bars */
+.bars { display: grid; gap: 14px; }
+.bar-row { display: grid; grid-template-columns: 11.5em 1fr 4.2em; gap: 12px; align-items: center; }
+.bar-row .lab { font-size: 0.95rem; }
+.track { height: 26px; background: color-mix(in srgb, var(--rule) 55%, transparent); border-radius: 4px; overflow: hidden; }
+.fill { height: 100%; background: var(--ink); border-radius: 4px; }
+.fill.low { background: var(--lost); }
+.bar-row .val { font-weight: 700; text-align: right; }
+.note { font-size: var(--step--1); color: var(--muted); }
+
+/* structures */
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px 28px; }
+@media (max-width: 900px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.stat b { display: block; font-size: var(--step-2); font-weight: 700; letter-spacing: -0.02em; }
+.stat span { color: var(--muted); font-size: 0.92rem; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--rule); flex-wrap: wrap; }
+.tabs button {
+  font: inherit; font-weight: 600; background: none; border: 0; padding: 10px 14px; color: var(--muted); cursor: pointer;
+  border-bottom: 3px solid transparent; margin-bottom: -1px;
+}
+.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); }
+.struct { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 28px; padding-top: 18px; }
+.struct .desc { display: grid; gap: 12px; align-content: start; }
+.struct .desc p { max-width: none; }
+.struct .meta { font-size: 0.92rem; color: var(--muted); }
+.example { background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; padding: 18px; display: grid; gap: 12px; }
+.example .qtext { font-family: var(--font-doc); font-size: 1.12rem; line-height: 1.45; }
+.chains { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.chain { display: grid; gap: 6px; align-content: start; }
+.chain-label { font-size: var(--step--1); color: var(--muted); font-weight: 600; }
+.prop { font-family: var(--font-doc); font-size: 1rem; line-height: 1.4; padding: 8px 10px; border-radius: 6px; color: var(--mark-ink); }
+.prop.a { background: var(--mark-a); }
+.prop.b { background: var(--mark-b); }
+.prop.plain { background: transparent; color: var(--ink); border: 1px solid var(--rule); }
+.prop.minor { background: transparent; color: var(--ink); border: 1.5px dashed var(--fam-prop); }
+.prop.major { background: color-mix(in srgb, var(--fam-gemma) 18%, transparent); color: var(--ink); }
+.prop .cond { font-weight: 500; text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.chain .down { text-align: center; color: var(--muted); line-height: 1; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: var(--step--1); color: var(--muted); }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 6px; }
+
+/* controls */
+.controls { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; }
+.seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 999px; padding: 3px; gap: 2px; flex-wrap: wrap; }
+.seg button { font: inherit; font-size: 0.9rem; font-weight: 500; border: 0; background: none; color: var(--muted); padding: 5px 12px; border-radius: 999px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.ctl-label { font-size: var(--step--1); color: var(--muted); }
+
+/* table */
+.table-scroll { overflow-x: auto; border: 1px solid var(--rule); border-radius: 12px; background: var(--sheet); }
+table { border-collapse: collapse; width: 100%; min-width: 860px; font-size: 0.93rem; }
+th, td { padding: 9px 12px; text-align: right; white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+thead th { font-weight: 600; color: var(--muted); font-size: 0.84rem; border-bottom: 1px solid var(--rule); vertical-align: bottom; }
+thead tr.grp th { color: var(--ink); font-size: 0.86rem; border-bottom: 0; padding-bottom: 0; text-align: center; }
+thead tr.grp th:first-child { text-align: left; }
+thead button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; display: inline-flex; gap: 4px; align-items: center; }
+thead button[aria-sort]:not([aria-sort="none"]) { color: var(--ink); }
+thead button .arr { font-size: 0.7em; opacity: 0.7; }
+tbody tr { border-top: 1px solid color-mix(in srgb, var(--rule) 70%, transparent); }
+tbody tr:hover { background: color-mix(in srgb, var(--rule) 30%, transparent); }
+td.method { font-weight: 500; display: flex; align-items: center; gap: 8px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 9px; }
+td.overall { font-weight: 700; }
+.cellbar { display: inline-grid; grid-template-columns: 74px 3.2em; gap: 8px; align-items: center; }
+.cellbar .t { height: 7px; border-radius: 4px; background: color-mix(in srgb, var(--rule) 60%, transparent); overflow: hidden; }
+.cellbar .t i { display: block; height: 100%; background: var(--ink); border-radius: 4px; }
+.best { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; text-decoration-color: var(--kept); font-weight: 700; }
+.dim { color: var(--muted); }
+
+/* charts */
+.chart-card { background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; padding: 16px; position: relative; min-width: 0; }
+svg.chart { width: 100%; height: auto; display: block; overflow: visible; }
+svg.chart text { fill: var(--muted); font-family: var(--font-ui); font-size: 12px; }
+svg.chart .axis line, svg.chart .grid line { stroke: var(--rule); }
+svg.chart .iso { stroke: var(--muted); stroke-dasharray: 3 4; fill: none; opacity: 0.7; }
+svg.chart .iso-label { fill: var(--muted); font-size: 11px; }
+svg.chart .pt { stroke: var(--sheet); stroke-width: 1.5; cursor: pointer; }
+svg.chart .pt:focus { outline: none; stroke: var(--ink); stroke-width: 2.5; }
+svg.chart .ptlabel { fill: var(--ink); font-size: 11.5px; font-weight: 500; paint-order: stroke; stroke: var(--sheet); stroke-width: 3px; stroke-linejoin: round; pointer-events: none; }
+.tooltip {
+  position: absolute; pointer-events: none; background: var(--ink); color: var(--paper); padding: 8px 10px; border-radius: 8px;
+  font-size: 0.84rem; line-height: 1.4; max-width: 240px; z-index: 5;
+}
+.panels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.panel h3 { font-size: 0.98rem; margin-bottom: 4px; }
+svg.chart .line { fill: none; stroke-width: 1.4; opacity: 0.18; }
+svg.chart .line.on { stroke-width: 2.6; opacity: 1; }
+svg.chart .line.dash { stroke-dasharray: 5 4; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font: inherit; font-size: 0.84rem; padding: 4px 10px 4px 8px; border-radius: 999px; border: 1px solid var(--rule); background: var(--sheet); color: var(--muted); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.chip[aria-pressed="true"] { color: var(--ink); border-color: var(--ink); }
+.chip .dot { width: 8px; height: 8px; flex-basis: 8px; }
+
+/* case explorer */
+.case { display: grid; grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr); gap: 24px; align-items: start; }
+.case-q { font-family: var(--font-doc); font-size: 1.2rem; line-height: 1.45; }
+.rid { font-family: var(--font-code); font-size: 0.82rem; color: var(--muted); }
+.plist { display: grid; gap: 6px; }
+.plist .prop { font-size: 0.97rem; display: grid; grid-template-columns: 2em 1fr; }
+.plist .prop b { font-family: var(--font-ui); font-size: 0.85rem; }
+.matrix-scroll { overflow-x: auto; }
+table.matrix { min-width: 440px; font-size: 0.88rem; }
+table.matrix th, table.matrix td { padding: 5px 8px; text-align: center; }
+table.matrix td:first-child, table.matrix th:first-child { text-align: left; }
+table.matrix tbody tr { cursor: default; }
+table.matrix tbody tr.has-out { cursor: pointer; }
+table.matrix tbody tr.has-out td:first-child { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+table.matrix tbody tr[aria-selected="true"] { background: color-mix(in srgb, var(--mark-a) 28%, transparent); }
+table.matrix tbody tr[aria-selected="true"] td:first-child { color: var(--ink); text-decoration: none; font-weight: 600; }
+.cell { display: inline-block; width: 22px; height: 18px; border-radius: 4px; vertical-align: middle; }
+.cell.y { background: var(--kept); }
+.cell.n { background: transparent; border: 1.5px solid var(--lost); background-image: repeating-linear-gradient(135deg, transparent 0 3px, color-mix(in srgb, var(--lost) 45%, transparent) 3px 4.5px); }
+.output { background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; padding: 18px; display: grid; gap: 12px; }
+.output-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.output-text { font-family: var(--font-doc); font-size: 1.04rem; line-height: 1.62; }
+.output-text .ea { background: var(--mark-a); color: var(--mark-ink); padding: 0 2px; border-radius: 2px; }
+.output-text .eb { background: var(--mark-b); color: var(--mark-ink); padding: 0 2px; border-radius: 2px; }
+.output-text .ex { text-decoration: line-through; text-decoration-color: var(--muted); color: var(--muted); }
+.output-note { font-size: 0.93rem; color: var(--muted); }
+
+/* resources */
+.res { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.res a { display: grid; gap: 4px; padding: 16px; border: 1px solid var(--rule); border-radius: 12px; background: var(--sheet); color: var(--ink); text-decoration: none; }
+.res a:hover { border-color: var(--ink); }
+.res a b { font-size: 1.05rem; }
+.res a span { color: var(--muted); font-size: 0.92rem; }
+.res a[aria-disabled="true"] { opacity: 0.55; pointer-events: none; }
+.bib { position: relative; }
+.bib pre { margin: 0; background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; padding: 18px; overflow-x: auto; font-family: var(--font-code); font-size: 0.84rem; line-height: 1.6; }
+.bib button { position: absolute; top: 10px; right: 10px; font: inherit; font-size: 0.84rem; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--rule); background: var(--paper); color: var(--ink); cursor: pointer; }
+footer { padding-block: 56px 40px; color: var(--muted); font-size: var(--step--1); display: grid; gap: 6px; }
+
+@media (max-width: 900px) {
+  .demo-grid { grid-template-columns: 1fr; }
+  .split, .struct, .case { grid-template-columns: 1fr; gap: 24px; }
+  .panels { grid-template-columns: 1fr; }
+  .res { grid-template-columns: 1fr; }
+}
+@media (max-width: 520px) {
+  .demo { padding: 16px; }
+  .chains { grid-template-columns: 1fr; }
+  .bar-row { grid-template-columns: 1fr 3.8em; }
+  .bar-row .lab { grid-column: 1 / -1; }
+  .toplinks { gap: 12px; }
+  .toplinks .wide { display: none; }
+  section.block { padding-block: 48px 4px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wordmark::before { animation: none; }
+  .pane, .check, .props li .tag { transition: none; }
+}
+
+/* academic header */
+header.title { text-align: center; padding-block: 64px 30px; display: grid; gap: 16px; justify-items: center; }
+header.title h1 { display: grid; gap: 12px; margin: 0; }
+header.title .t1 { font-size: clamp(2.8rem, 7vw, 4.4rem); font-weight: 800; letter-spacing: -0.035em; line-height: 1; }
+header.title .t2 { font-size: clamp(1.3rem, 2.8vw, 2rem); font-weight: 600; letter-spacing: -0.015em; line-height: 1.25; text-wrap: balance; }
+.authors { font-size: 1.1rem; display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 18px; max-width: 760px; }
+.affil { color: var(--muted); }
+header.title .buttons { justify-content: center; padding-top: 4px; }
+header.title .btn { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+header.title .btn:hover { opacity: .85; }
+header.title .btn[aria-disabled="true"] { background: transparent; color: var(--muted); border-color: var(--rule); opacity: 1; }
+
+/* Figure 1, drawn from the paper's PowerPoint source (Aptos there, Inter here) */
+.teaser { display: grid; gap: 14px; }
+.fig-scroll { overflow-x: auto; overflow-y: hidden; border-radius: 12px; border: 1px solid var(--rule); background: #fbfbfa; }
+.fig-box { position: relative; margin: 0 auto; }
+.fig { position: absolute; left: 0; top: 0; width: 1350px; height: 574px; transform-origin: 0 0; background: #fbfbfa; color: #171a1d;
+  font-family: "Inter", "Aptos", "Segoe UI", Arial, sans-serif; font-size: 19px; }
+.fig > * { position: absolute; }
+.fig .bg-left { left: 0; top: 0; width: 464.3px; height: 574px; background: #f2f2f2; }
+.fig svg.lines { left: 0; top: 0; width: 1350px; height: 574px; overflow: visible; }
+.fig .ttl { font-size: 24px; font-weight: 700; line-height: 33.8px; white-space: nowrap; }
+.fig .lab { font-weight: 700; color: #454a51; line-height: 24px; white-space: nowrap; }
+.fig .txt { line-height: 24px; }
+.fig .note { font-size: 15px; font-style: italic; text-align: center; line-height: 1.25; }
+.fig .hl { padding: 0 1px; background-repeat: no-repeat; background-size: 100% 100%; box-decoration-break: clone; -webkit-box-decoration-break: clone; transition: background-size .5s ease var(--d, 0s); }
+.fig .hl.y { background-image: linear-gradient(#ffff07, #ffff07); }
+.fig .hl.v { background-image: linear-gradient(#e6a8ff, #e6a8ff); }
+.fig .sq { text-decoration: underline wavy #d97706; text-decoration-thickness: 1.6px; text-underline-offset: 5px; transition: text-decoration-color .4s ease var(--d, 0s); }
+.fig .comp { display: flex; align-items: center; justify-content: space-between; padding: 0 12px 0 18px; background: #e6e9ec; border: 1px solid #4b5159; border-radius: 5px;
+  box-shadow: 3.7px 3.5px 0 -1px #b9c1cb, 3.7px 3.5px 0 0 #4b5159; color: #202124; }
+.fig .comp .nodes { width: 30px; height: 22px; }
+.fig.spin .comp .nodes { animation: pulse .7s ease-in-out infinite; }
+@keyframes pulse { 50% { transform: scale(1.18); } }
+.fig .model { width: 135px; height: 127.5px; border: 1px solid #344054; border-radius: 6px; box-shadow: 5.2px 5.2px 0 -1px var(--dc), 5.2px 5.2px 0 0 #344054; }
+.fig .badge-c { position: absolute; left: 39px; top: 13.5px; width: 57px; height: 57px; border-radius: 50%; border: 1px solid #344054; display: grid; place-items: center; }
+.fig .badge-c svg { width: 34px; height: 34px; }
+.fig .mlab { position: absolute; left: 0; right: 0; top: 76px; text-align: center; line-height: 22px; }
+.fig .verdict { width: 283.5px; height: 48px; padding: 0; border: 1.2px solid; border-radius: 7px; display: grid; place-items: center; font-weight: 700; font-size: 19px; }
+.fig .passbox { width: 75.8px; height: 34.5px; background: #fcfcfb; border: 1px solid #747a81; border-radius: 6px; display: grid; place-items: center; font-weight: 700; }
+.fig .prow { width: 360px; height: 31.5px; display: flex; align-items: center; color: #202124; white-space: nowrap; }
+.fig .prow sub, .fig .pid sub, .fig .note sub { font-size: .65em; }
+.fig .pdiv { width: 341.6px; height: 1px; background: #d5d9dd; }
+.fig .pid { left: 1134.7px; width: 27px; height: 31.5px; display: flex; align-items: center; font-weight: 700; color: #202124; }
+.fig .st { left: 1161.7px; width: 160.5px; height: 30px; border-radius: 6px; display: grid; place-items: center; font-weight: 700; border: 1px solid; }
+.fig .st.ok { background: #e7f6f1; color: #167764; border-color: #167764; }
+.fig .st.no { background: #fff1f0; color: #d63e3e; border-color: #d63e3e; }
+.fig .jdiv { left: 1134.7px; width: 187.5px; height: 1px; background: #d5d9dd; }
+
+.fig .a { transition: opacity .45s ease var(--d, 0s); }
+.fig .pop { transition: opacity .35s ease var(--d, 0s), transform .4s cubic-bezier(.3,1.5,.5,1) var(--d, 0s); }
+.fig .draw { stroke-dasharray: 1 1; stroke-dashoffset: 0; transition: stroke-dashoffset .7s ease-in-out var(--d, 0s); }
+
+.fig-controls { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; }
+.fig-controls button { font: inherit; font-size: 0.9rem; font-weight: 600; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--rule); background: var(--sheet); color: var(--muted); cursor: pointer; display: inline-flex; gap: 8px; align-items: center; }
+.fig-controls button .n { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; border: 1px solid currentColor; font-size: 0.75rem; }
+.fig-controls button[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.fig-hint { display: none; text-align: center; font-size: var(--step--1); color: var(--muted); }
+.caption { max-width: none; margin: 0; font-size: 0.95rem; color: var(--muted); }
+.caption b { color: var(--ink); }
+.abstract { max-width: 72ch; display: grid; gap: 12px; color: var(--ink); font-size: 1.04rem; }
+.abstract p { color: var(--muted); }
+@media (max-width: 900px) { .fig-hint { display: block; } }
+@media (prefers-reduced-motion: reduce) {
+  .fig .a, .fig .pop, .fig .draw, .fig .hl, .fig .sq { transition: none; }
+  .fig.spin .comp .nodes { animation: none; }
+}
+
+/* abstract: lead + key findings, full text on demand */
+.abs-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 44px; align-items: start; }
+.abs-lead { font-size: 1.32rem; line-height: 1.5; color: var(--ink); letter-spacing: -0.005em; }
+.findings { list-style: none; margin: 0; padding: 0; }
+.findings li { display: grid; grid-template-columns: 6.6rem minmax(0, 1fr); gap: 16px; align-items: baseline; padding: 11px 0; border-top: 1px solid var(--rule); }
+.findings li:last-child { border-bottom: 1px solid var(--rule); }
+.findings b { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.01em; white-space: nowrap; }
+.findings span { color: var(--muted); }
+.abs-full summary { cursor: pointer; font-weight: 600; color: var(--accent); width: max-content; }
+.abs-cols { columns: 2 320px; column-gap: 44px; margin-top: 14px; color: var(--muted); font-size: 0.98rem; }
+.abs-cols p { margin: 0 0 12px; }
+
+/* evidence-structure examples, redrawn from the paper's example figure */
+.example.xf { background: #fff; color: #20262c; gap: 7px; font-family: "Inter", var(--font-ui); align-content: start; }
+.xf .xf-panel { display: grid; gap: 7px; }
+.struct .desc .seg { justify-self: start; }
+.xf .xf-title { font-size: 1.2rem; font-weight: 700; margin-bottom: 2px; }
+.xf .xf-lab { font-size: 0.88rem; font-weight: 700; }
+.xf .xf-lab.q { color: #3d6f91; }
+.xf .xf-lab.e { color: #4e813f; }
+.xf .xf-lab.p { color: #75657e; }
+.xf .xf-box { border: 1px solid; border-radius: 5px; padding: 6px 11px; font-size: 1rem; line-height: 1.4; }
+.xf .xf-box.q { background: #e7f0f7; border-color: #a4bbcb; border-radius: 8px; padding: 8px 12px; }
+.xf .xf-box.p { background: #f0edf3; border-color: #b7adbe; }
+.xf .xf-box.e { background: #eef6e9; border-color: #a2bd96; }
+.xf .xf-box.major { background: #dcecd5; border-color: #8fb47e; position: relative; }
+.xf .xf-box.minor { background: #f9e2b5; border-color: #d6a64a; }
+.xf .cnd { color: #0e7896; }
+.xf .xf-chains { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.xf .xf-chain { display: grid; gap: 0; align-content: start; }
+.xf .xf-arrow { display: block; justify-self: center; width: 1.3px; height: 15px; background: var(--ac); position: relative; margin-bottom: 4px; }
+.xf .xf-arrow::after { content: ""; position: absolute; left: 50%; bottom: -4px; transform: translateX(-50%); border: 4px solid transparent; border-top: 5px solid var(--ac); border-bottom: 0; }
+.xf .xf-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.xf .xf-key { display: flex; gap: 12px; font-size: 0.74rem; }
+.xf .xf-key span { display: inline-flex; align-items: center; gap: 5px; }
+.xf .xf-key em { font-style: normal; }
+.xf .xf-key i { display: inline-block; width: 8px; height: 10px; border-radius: 2px; border: 1px solid; }
+.xf .k-cond { background: #eaf4f8; border-color: #66a9be !important; width: 9px !important; height: 9px !important; }
+.xf .t-cond { color: #0e7896; font-size: 0.82rem; }
+.xf .k-major { background: #dcecd5; border-color: #8fb47e; box-shadow: -2.5px -3px 0 -1px #e8f2e3, -2.5px -3px 0 0 #8fb47e; margin-left: 3px; }
+.xf .k-minor { background: #f9e2b5; border-color: #d6a64a; }
+.xf .t-major { color: #367a5b; }
+.xf .t-minor { color: #c37a00; }
+.xf .xf-stack { position: relative; isolation: isolate; margin-top: 5px; }
+.xf .xf-stack::before, .xf .xf-stack::after { content: ""; position: absolute; border: 1px solid #8fb47e; border-radius: 5px; z-index: -1; }
+.xf .xf-stack::before { inset: -2.7px -2px 2.7px 2px; background: #e8f2e3; }
+.xf .xf-stack::after { inset: -5.4px -4px 5.4px 4px; background: #f2f7ef; z-index: -2; }
+@media (max-width: 900px) { .abs-grid { grid-template-columns: 1fr; gap: 24px; } }
+@media (max-width: 520px) { .xf .xf-chains { grid-template-columns: 1fr; } .findings li { grid-template-columns: 1fr; gap: 2px; } }
+
+/* evidence position */
+.pos-schema { display: grid; gap: 8px; }
+.pos-row { display: grid; grid-template-columns: 6.5em minmax(0, 1fr); gap: 12px; align-items: center; }
+.pos-name { font-size: 0.92rem; font-weight: 600; }
+.pos-strip { display: grid; grid-template-columns: repeat(22, minmax(0, 1fr)); gap: 3px; }
+.pos-strip i { height: 18px; border-radius: 3px; background: color-mix(in srgb, var(--rule) 80%, transparent); }
+.pos-strip i.a { background: var(--mark-a); }
+.pos-strip i.b { background: var(--mark-b); }
+.pos-key { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: var(--step--1); color: var(--muted); padding-left: calc(6.5em + 12px); }
+.pos-key i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 6px; }
+.pos-key .ka { background: var(--mark-a); } .pos-key .kb { background: var(--mark-b); } .pos-key .kd { background: color-mix(in srgb, var(--rule) 80%, transparent); }
+.pos-panels { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pos-card { display: grid; gap: 10px; align-content: start; }
+.pos-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pos-head h3 { font-size: 1rem; }
+svg.chart .vlabel { fill: var(--ink); font-size: 11.5px; font-weight: 600; }
+@media (max-width: 900px) { .pos-panels { grid-template-columns: 1fr; } }
+@media (max-width: 520px) { .pos-row { grid-template-columns: 1fr; gap: 4px; } .pos-key { padding-left: 0; } }
+/* justify only full-width text; narrow columns stay ragged-right so word gaps stay even */
+section.block > .lede, section.block > .note, .teaser > .caption, .abs-cols p { text-align: justify; hyphens: manual; }
+@media (max-width: 520px) { section.block > .lede, section.block > .note, .teaser > .caption, .abs-cols p { text-align: left; } }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="title" id="top">
+    <h1><span class="t1">KEEP-Bench</span><span class="t2">Evaluating Evidence Preservation in Context Compression</span></h1>
+    <div class="authors"><span>Ziqing Man</span><span>Di Wu</span><span>Jia-Chen Gu</span><span>Junyi Zhang</span><span>Kai-Wei Chang</span><span>Nanyun Peng</span></div>
+    <div class="affil">University of California, Los Angeles</div>
+    <div class="buttons">
+      <a class="btn" href="#" aria-disabled="true" title="The paper link will be added when the preprint is public"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h8l6 6v14H6zM13 3.5V9h5.5"/></svg>Paper (coming soon)</a>
+      <a class="btn" href="https://github.com/PlusLabNLP/KEEP-Bench"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.71 1.26 3.37.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.84 1.19 3.1 0 4.42-2.69 5.39-5.26 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></svg>Code</a>
+      <a class="btn" href="https://huggingface.co/datasets/uclanlp/KEEP-Bench"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C7 2 3 3.6 3 5.5v13C3 20.4 7 22 12 22s9-1.6 9-3.5v-13C21 3.6 17 2 12 2zm0 2c4.4 0 7 1.3 7 1.5S16.4 7 12 7 5 5.7 5 5.5 7.6 4 12 4zm7 14.5c0 .2-2.6 1.5-7 1.5s-7-1.3-7-1.5v-2.7c1.7.8 4.2 1.2 7 1.2s5.3-.4 7-1.2zm0-5c0 .2-2.6 1.5-7 1.5s-7-1.3-7-1.5v-2.7c1.7.8 4.2 1.2 7 1.2s5.3-.4 7-1.2z"/></svg>Dataset</a>
+    </div>
+  </header>
+
+  <section class="teaser" aria-labelledby="fig-cap">
+    <div class="fig-scroll" id="fig-scroll">
+      <div class="fig-box" id="fig-box">
+        <div class="fig" id="fig" data-stage="4" role="img" aria-label="Figure 1. A compressor turns a context about Nova Mart and two parks named Pineview into an unfaithful summary that binds 1985 to the wrong state. Downstream QA still gets the answer 1985 and passes, so the loss goes undetected. KEEP-Bench checks four reference evidence propositions independently, finds three not entailed, and detects the loss.">
+          <div class="bg-left"></div>
+          <div class="a" data-s="3" style="left:464.3px;top:0;width:885.7px;height:255px;background:#fae5de"></div>
+          <div class="a" data-s="4" style="left:464.3px;top:255px;width:885.7px;height:318.7px;background:#e5edf9"></div>
+
+          <svg class="lines" viewBox="0 0 1350 574" aria-hidden="true">
+            <!-- input cards -->
+            <g class="a" data-s="1">
+              <rect x="18" y="51" width="431.2" height="312.3" rx="4" fill="none" stroke="#98a2b3" stroke-width="1" stroke-dasharray="6 4"/>
+              <path d="M25.5 57 H428.7 L441.7 70 V158 H25.5 Z" fill="#fcfcfb" stroke="#747a81" stroke-width="1"/>
+              <path d="M428.7 57 V70 H441.7" fill="#e6e8ea" stroke="#747a81" stroke-width="1"/>
+              <rect x="25.5" y="164" width="416.2" height="192" fill="#fcfcfb" stroke="#747a81" stroke-width="1"/>
+            </g>
+            <!-- context to compressed context -->
+            <path class="draw" data-s="2" pathLength="1" d="M235.9 356 V401" stroke="#989ea5" stroke-width="3" fill="none"/>
+            <path class="a" data-s="2" style="--d:.45s" d="M230 400.8 H242 L236 417.3 Z" fill="#989ea5"/>
+            <g class="a" data-s="2" style="--d:.7s">
+              <path d="M25.5 415.9 H428.7 L441.7 428.9 V566.1 H25.5 Z" fill="#fcfcfb" stroke="#747a81" stroke-width="1"/>
+              <path d="M428.7 415.9 V428.9 H441.7" fill="#e6e8ea" stroke="#747a81" stroke-width="1"/>
+            </g>
+            <!-- downstream QA arrows -->
+            <path class="draw" data-s="3" style="--d:.3s" pathLength="1" d="M441.7 120 H489" stroke="#989ea5" stroke-width="3" fill="none"/>
+            <path class="a" data-s="3" style="--d:.75s" d="M487.3 111.8 L499.3 120 L487.3 128.3 Z" fill="#989ea5"/>
+            <path class="draw" data-s="3" style="--d:.3s" pathLength="1" d="M441.7 542 H462.7 V194 H489" stroke="#989ea5" stroke-width="3" fill="none"/>
+            <path class="a" data-s="3" style="--d:1s" d="M487.3 185.7 L499.3 194 L487.3 202.2 Z" fill="#989ea5"/>
+            <path class="draw" data-s="3" style="--d:1.35s" pathLength="1" d="M635.9 153.6 H670.2 V202.5 H687" stroke="#989ea5" stroke-width="3" fill="none"/>
+            <path class="a" data-s="3" style="--d:1.75s" d="M686 194.2 L698 202.5 L686 210.7 Z" fill="#989ea5"/>
+            <g class="a" data-s="3" style="--d:1.6s">
+              <rect x="699.6" y="89" width="302.8" height="62.1" rx="4" fill="#fcfcfb" stroke="#747a81" stroke-width="1"/>
+              <path d="M699.6 89 V80.5 Q699.6 78.5 701.6 78.5 H763 L771.6 89 Z" fill="#d8ddf0" stroke="#747a81" stroke-width="1"/>
+            </g>
+            <g class="a" data-s="3" style="--d:1.9s">
+              <path d="M699.6 163 H991.4 L1002.4 174 V225.1 H699.6 Z" fill="#fcfcfb" stroke="#747a81" stroke-width="1"/>
+              <path d="M991.4 163 V174 H1002.4" fill="#e6e8ea" stroke="#747a81" stroke-width="1"/>
+            </g>
+            <path class="draw" data-s="3" style="--d:2.25s" pathLength="1" d="M1002.4 120 H1048" stroke="#989ea5" stroke-width="3" fill="none"/>
+            <path class="a" data-s="3" style="--d:2.55s" d="M1047.4 111.8 L1059.4 120 L1047.4 128.3 Z" fill="#989ea5"/>
+            <path class="draw" data-s="3" style="--d:2.25s" pathLength="1" d="M1002.4 194 H1048" stroke="#989ea5" stroke-width="3" fill="none"/>
+            <path class="a" data-s="3" style="--d:2.55s" d="M1047.4 185.7 L1059.4 194 L1047.4 202.2 Z" fill="#989ea5"/>
+            <path class="draw" data-s="3" style="--d:3s" pathLength="1" d="M1196 153.6 H1247" stroke="#989ea5" stroke-width="3" fill="none"/>
+            <path class="a" data-s="3" style="--d:3.25s" d="M1246.5 145.4 L1258.5 153.6 L1246.5 161.9 Z" fill="#989ea5"/>
+            <!-- KEEP-Bench arrows -->
+            <g class="a" data-s="4" style="--d:.4s">
+              <rect x="500.9" y="331.4" width="368.4" height="199.4" rx="3" fill="#fcfcfb" stroke="#747a81" stroke-width="1"/>
+              <path d="M500.9 331.4 V322.9 Q500.9 320.9 502.9 320.9 H570 L578.9 331.4 Z" fill="#d8ddf0" stroke="#747a81" stroke-width="1"/>
+            </g>
+            <path class="draw" data-s="4" style="--d:.4s" pathLength="1" d="M462.7 542 H897.2 V476.8 H912" stroke="#989ea5" stroke-width="3" fill="none"/>
+            <path class="a" data-s="4" style="--d:1.3s" d="M911.6 468.5 L923.6 476.8 L911.6 485 Z" fill="#989ea5"/>
+            <path class="draw" data-s="4" style="--d:1.4s" pathLength="1" d="M869.3 409.6 H912.5" stroke="#989ea5" stroke-width="3" fill="none"/>
+            <path class="a" data-s="4" style="--d:1.65s" d="M911.6 401.4 L923.6 409.6 L911.6 417.9 Z" fill="#989ea5"/>
+            <path class="draw" data-s="4" style="--d:2.1s" pathLength="1" d="M1060.2 443.3 H1108.5" stroke="#989ea5" stroke-width="3" fill="none"/>
+            <path class="a" data-s="4" style="--d:2.35s" d="M1107.7 435 L1119.7 443.3 L1107.7 451.5 Z" fill="#989ea5"/>
+            <rect class="a" data-s="4" style="--d:2.4s" x="1121.2" y="360" width="214.5" height="166.5" rx="9.7" fill="#fff" stroke="#747a81" stroke-width="1"/>
+          </svg>
+
+          <!-- context compression -->
+          <div class="ttl" style="left:18px;top:12.8px;color:#454a51">Context Compression</div>
+          <div class="a lab" data-s="1" style="left:39px;top:64px">Query:</div>
+          <div class="a txt" data-s="1" style="left:39px;top:87px;width:392px;line-height:22px">What is the earliest year in which Nova Mart entered a state with a park named Pineview?</div>
+          <div class="a lab" data-s="1" style="left:39px;top:171px">Context:</div>
+          <div class="a txt" data-s="1" style="left:39px;top:196px;width:392px;line-height:22.6px;color:#202124">… <span class="hl y" data-s="1" style="--d:.6s">Pineview in the state of Verdia</span> is a 45-acre park in Verde City. … <span class="hl y" data-s="1" style="--d:.9s">In <b>1991</b>, Nova Mart expanded into Verdia</span>. …<br><br>… <span class="hl v" data-s="1" style="--d:1.2s">Pineview is a park in Sylvaria</span>, located in Bowie. … Corporate histories state that <span class="hl v" data-s="1" style="--d:1.5s">Nova Mart entered Sylvaria in <b>1985</b></span>. …</div>
+          <div class="pop comp" data-s="2" style="left:147.1px;top:369.4px;width:177.8px;height:28.9px;--d:.15s">
+            <span>Compressor</span>
+            <svg class="nodes" viewBox="0 0 30 22" aria-hidden="true"><g stroke="#454a51" stroke-width="1" fill="none"><path d="M3 3 L13 11 M3 19 L13 11 M13 11 L27 3 M13 11 L27 19"/></g><g fill="#fff" stroke="#454a51" stroke-width="1"><circle cx="3" cy="3" r="2.5"/><circle cx="3" cy="19" r="2.5"/><circle cx="13" cy="11" r="2.5"/><circle cx="27" cy="3" r="2.5"/><circle cx="27" cy="19" r="2.5"/></g></svg>
+          </div>
+          <div class="a lab" data-s="2" style="left:39px;top:424px;--d:.8s">Compressed Context (Unfaithful):</div>
+          <div class="a txt" data-s="2" style="left:39px;top:451px;width:392px;line-height:23px;--d:1s">The park named Pineview is located in the state of Verdia. According to corporate histories, Nova Mart entered <span class="sq" data-s="2" style="--d:1.7s">Verdia in <b>1985</b></span>.</div>
+          <div class="a note" data-s="2" style="left:285.8px;top:542px;width:140px;color:#d97706;--d:1.8s">Incorrect binding</div>
+
+          <!-- downstream QA -->
+          <div class="ttl a" data-s="3" style="left:479.3px;top:12.8px;color:#a3353a;--d:.15s">Downstream QA: Indirect Evidence Evaluation</div>
+          <div class="pop verdict" data-s="3" style="left:1063px;top:12px;background:#fff1f0;border-color:#d63e3e;color:#d63e3e;--d:3.8s">Unfaithfulness Undetected&nbsp;✗</div>
+          <div class="pop model" data-s="3" style="left:500.9px;top:89.8px;background:#ffe1d2;--dc:#dfaea5;--d:1s">
+            <div class="badge-c" style="background:#b44c52"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M9 13a4.5 4.5 0 0 0 3-4"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M12 13h4"/><path d="M12 18h6a2 2 0 0 1 2 2v1"/><path d="M12 8h8"/><path d="M16 8V5a2 2 0 0 1 2-2"/><circle cx="16" cy="13" r=".5"/><circle cx="18" cy="3" r=".5"/><circle cx="20" cy="21" r=".5"/><circle cx="20" cy="8" r=".5"/></svg></div>
+            <div class="mlab">Reader<br>Model</div>
+          </div>
+          <div class="a lab" data-s="3" style="left:711.3px;top:91.8px;--d:1.6s">Reference Answer:</div>
+          <div class="a txt" data-s="3" style="left:711.3px;top:119px;--d:1.6s">1985.</div>
+          <div class="a lab" data-s="3" style="left:711.4px;top:165.8px;--d:1.9s">Predicted Answer:</div>
+          <div class="a txt" data-s="3" style="left:711.4px;top:193px;--d:1.9s"><span id="answer-text">The earliest year was 1985.</span></div>
+          <div class="pop model" data-s="3" style="left:1061px;top:89.8px;background:#ffe1d2;--dc:#dfaea5;--d:2.65s">
+            <div class="badge-c" style="background:#b44c52"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:30px;height:30px"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></svg></div>
+            <div class="mlab">Answer<br>Evaluator</div>
+          </div>
+          <div class="pop passbox" data-s="3" style="left:1260px;top:136.4px;--d:3.35s">Pass</div>
+
+          <!-- KEEP-Bench -->
+          <div class="ttl a" data-s="4" style="left:479.3px;top:272.2px;color:#355f90;--d:.15s">KEEP-Bench: Direct Evidence Evaluation</div>
+          <div class="pop verdict" data-s="4" style="left:1063px;top:265.5px;background:#e7f6f1;border-color:#167764;color:#167764;--d:4.1s">Unfaithfulness Detected&nbsp;✓</div>
+          <div class="a lab" data-s="4" style="left:514.1px;top:334.2px;--d:.45s">Reference Evidence Propositions:</div>
+          <div class="a prow" data-s="4" style="left:514.1px;top:361.1px;--d:.6s"><b>P<sub>1</sub>:</b>&nbsp;A park named Pineview is in Verdia.</div>
+          <div class="a pdiv" data-s="4" style="left:514.1px;top:398.8px;--d:.6s"></div>
+          <div class="a prow" data-s="4" style="left:514.1px;top:405.1px;--d:.8s"><b>P<sub>2</sub>:</b>&nbsp;Nova Mart entered Verdia in 1991.</div>
+          <div class="a pdiv" data-s="4" style="left:514.1px;top:442.8px;--d:.8s"></div>
+          <div class="a prow" data-s="4" style="left:514.1px;top:448.9px;--d:1s"><b>P<sub>3</sub>:</b>&nbsp;A park named Pineview is in Sylvaria.</div>
+          <div class="a pdiv" data-s="4" style="left:514.1px;top:486.7px;--d:1s"></div>
+          <div class="a prow" data-s="4" style="left:514.1px;top:492.6px;--d:1.2s"><b>P<sub>4</sub>:</b>&nbsp;Nova Mart entered Sylvaria in 1985.</div>
+          <div class="a note" data-s="4" style="left:920px;top:338px;width:150px;color:#6b7280;--d:1.6s">Judge each P<sub>i</sub> independently</div>
+          <div class="pop model" data-s="4" style="left:925.2px;top:379.5px;background:#d9e8f8;--dc:#a9c2de;--d:1.8s">
+            <div class="badge-c" style="background:#35699d"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/><path d="m16 16-1.9-1.9"/></svg></div>
+            <div class="mlab">Evidence<br>Evaluator</div>
+          </div>
+          <div class="a pid" data-s="4" style="top:367.5px;--d:2.6s">P<sub>1</sub></div>
+          <div class="pop st ok" data-s="4" style="top:368.2px;--d:2.75s">Entailed</div>
+          <div class="a jdiv" data-s="4" style="top:402px;--d:2.6s"></div>
+          <div class="a pid" data-s="4" style="top:409.3px;--d:2.95s">P<sub>2</sub></div>
+          <div class="pop st no" data-s="4" style="top:409.9px;--d:3.1s">Not Entailed</div>
+          <div class="a jdiv" data-s="4" style="top:443.6px;--d:2.95s"></div>
+          <div class="a pid" data-s="4" style="top:451px;--d:3.3s">P<sub>3</sub></div>
+          <div class="pop st no" data-s="4" style="top:451.5px;--d:3.45s">Not Entailed</div>
+          <div class="a jdiv" data-s="4" style="top:485.2px;--d:3.3s"></div>
+          <div class="a pid" data-s="4" style="top:492.7px;--d:3.65s">P<sub>4</sub></div>
+          <div class="pop st no" data-s="4" style="top:493.2px;--d:3.8s">Not Entailed</div>
+        </div>
+      </div>
+    </div>
+    <div class="fig-hint">Scroll sideways to see the whole figure.</div>
+    <div class="fig-controls" role="group" aria-label="Figure walkthrough">
+      <button type="button" data-go="1" aria-pressed="false"><span class="n">1</span>Input</button>
+      <button type="button" data-go="2" aria-pressed="false"><span class="n">2</span>Compress</button>
+      <button type="button" data-go="3" aria-pressed="false"><span class="n">3</span>Downstream QA</button>
+      <button type="button" data-go="4" aria-pressed="true"><span class="n">4</span>KEEP-Bench</button>
+      <button type="button" id="replay">Replay</button>
+    </div>
+    <p class="caption" id="fig-cap"><b>Figure 1.</b> Comparison of indirect evaluation and direct evidence evaluation on a simplified KEEP-Bench case. The upper branch shows indirect evaluation through downstream QA, which considers only the final answer and may therefore falsely accept an unfaithful compressed context. The lower branch shows KEEP-Bench’s direct evidence evaluation, which independently checks whether each reference evidence proposition is entailed by the compressed context, thereby detecting the preservation failure.</p>
+  </section>
+
+  <section class="block" aria-labelledby="abs-title">
+    <h2 id="abs-title">Abstract</h2>
+    <div class="abs-grid">
+      <p class="abs-lead">Context compression can drop evidence that a question needs, and QA metrics underestimate the loss because a reader can still answer correctly from an unfaithful compression. <span style="white-space:nowrap">KEEP-Bench</span> checks the compressed context directly, on 4,102 cases that require keeping plausible reference resolutions, explicit qualifiers and minority perspectives.</p>
+      <ul class="findings">
+        <li><b>≤ 10%</b><span>Dedicated compressors keep all required evidence in at most 10% of cases.</span></li>
+        <li><b>66.8%</b><span>The strongest open-weight model (31B) succeeds in two of three cases on 3.1K-token inputs. The strongest proprietary model reaches 61.6%.</span></li>
+        <li><b>Structure</b><span>Results vary sharply across evidence structures, so testing one structure can misjudge a compressor.</span></li>
+        <li><b>EPR</b><span>Recall per unit of compute peaks at moderate model scales, where recall is still low.</span></li>
+        <li><b>Budget</b><span>A larger output budget mainly helps models that are already strong, widening the gap.</span></li>
+      </ul>
+    </div>
+    <details class="abs-full">
+      <summary>Read the full abstract</summary>
+      <div class="abs-cols">
+        <p>Context compression improves long-context efficiency but may introduce faithfulness issues through an information bottleneck. Existing evaluations rely on QA metrics, but a reader can still answer correctly from an unfaithful compression, so these metrics underestimate such loss. To bridge this gap, we introduce KEEP-Bench, a diagnostic benchmark that directly assesses compression faithfulness with 4,102 cases across three challenging settings that require keeping evidence for <em>plausible reference resolutions</em>, <em>explicit qualifiers</em>, and <em>minority perspectives</em>.</p>
+        <p>Dedicated compressors trained for context compression preserve all required evidence in at most 10% of cases. General LLMs prompted to compress do better but remain unreliable: despite context windows exceeding 100K tokens and inputs averaging only 3.1K, the strongest open-weight model (31B) succeeds in only 66.8% of cases and the strongest proprietary model in 61.6%. Performance also varies sharply across evidence structures, so conclusions from limited structures may be biased.</p>
+        <p>We further introduce Evidence Preservation Return (EPR), relating evidence recall to inference FLOPs; it tends to peak at moderate scales within each family, where absolute recall remains low. Additional output budget mainly benefits already strong models, widening rather than closing capability gaps.</p>
+        <p>Existing compression methods thus offer either efficiency without reliable information preservation, or stronger preservation at a steep computational cost. These findings highlight the need for future work on compressors that preserve information reliably under small computation budgets, rather than relying on model scaling or large output budgets.</p>
+      </div>
+    </details>
+  </section>
+
+  <section class="block" aria-labelledby="why-title">
+    <h2 id="why-title">Why check the evidence directly</h2>
+    <div class="split">
+      <div style="display:grid;gap:16px">
+        <p class="lede">Compression quality is usually inferred from how well a reader answers questions from the compressed context. Lost evidence does hurt those answers. But a reader can still answer correctly from an unfaithful compression, so QA metrics underestimate how much evidence is lost.</p>
+        <p class="lede">KEEP-Bench removes the reader from the measurement. It annotates the evidence each question needs and asks whether the compression kept all of it.</p>
+      </div>
+      <div class="chart-card" style="display:grid;gap:16px">
+        <h3>Reader answers both questions correctly</h3>
+        <div class="bars" id="pilot"></div>
+        <p class="note">Pilot study on 200 parallel cases. Faithful compression matches the original context. Unfaithful compression drops accuracy by 84.5 points, yet 23 of the 200 answers are still fully correct.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="settings" aria-labelledby="set-title">
+    <h2 id="set-title">Three evidence structures</h2>
+    <p class="lede">Each setting targets an evidence structure that single-path QA leaves untested.</p>
+    <div class="stats">
+      <div class="stat"><b>4,102</b><span>cases</span></div>
+      <div class="stat"><b>3.1K</b><span>tokens per context on average</span></div>
+      <div class="stat"><b>15,953</b><span>proposition checks per run</span></div>
+      <div class="stat"><b>93.0%</b><span>judge agreement with humans</span></div>
+    </div>
+    <div>
+      <div class="tabs" role="tablist" aria-label="Evidence structures">
+        <button role="tab" id="tab-par" aria-controls="panel-par" aria-selected="true">Parallel</button>
+        <button role="tab" id="tab-con" aria-controls="panel-con" aria-selected="false" tabindex="-1">Conditional</button>
+        <button role="tab" id="tab-imb" aria-controls="panel-imb" aria-selected="false" tabindex="-1">Imbalanced</button>
+      </div>
+
+      <div class="struct" role="tabpanel" id="panel-par" aria-labelledby="tab-par">
+        <div class="desc">
+          <h3>Keep both readings</h3>
+          <p>An underspecified mention can refer to two fictional entities. Each reading induces its own reasoning chain, and the compression must keep both chains, with each fact bound to the right entity.</p>
+          <p class="meta">900 cases: 400 two-hop, 300 three-hop, 200 four-hop. Built from MuSiQue with fictionalized entities, so omitted evidence cannot be recovered from memory. Average 22.8 paragraphs and 2,799 tokens.</p>
+          <p class="meta">Para-Rec counts a case when the facts that tell the two readings apart are kept. All-Rec needs all four propositions.</p>
+        </div>
+        <div class="example xf">
+          <div class="xf-title">Parallel Evidence</div>
+          <div class="xf-lab q">Query</div>
+          <div class="xf-box q">Who is the current mayor of the city where Eldrin was born?</div>
+          <div class="xf-lab e">Evidence Propositions</div>
+          <div class="xf-chains">
+            <div class="xf-chain" style="--ac:#367a5b"><div class="xf-box e">Eldrin <b><i>Voss</i></b> was born in Aetherm.</div><span class="xf-arrow" aria-hidden="true"></span><div class="xf-box e">Aetherm's mayor is Celeste Duvall.</div></div>
+            <div class="xf-chain" style="--ac:#c37a00"><div class="xf-box e">Eldrin <b><i>Thorne</i></b> was born in Luminara.</div><span class="xf-arrow" aria-hidden="true"></span><div class="xf-box e">Luminara's mayor is Kaelen Thorne.</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="struct" role="tabpanel" id="panel-con" aria-labelledby="tab-con" hidden>
+        <div class="desc">
+          <h3>Keep the qualifier</h3>
+          <p>One reasoning step holds only under an explicit qualifier, and the context says the step fails when the condition is unmet. Dropping the qualifier turns a conditional claim into an unconditional one.</p>
+          <p class="meta">1,364 cases: 604 two-hop, 493 three-hop, 267 four-hop. Average 21.0 paragraphs and 2,544 tokens.</p>
+          <p class="meta">Cond-Rec counts a case when the qualifier is kept. All-Rec needs the qualifier and every hop.</p>
+        </div>
+        <div class="example xf">
+          <div class="xf-title">Conditional Evidence</div>
+          <div class="xf-lab q">Query</div>
+          <div class="xf-box q">After whom is the city where Enchanted Echoes is set named?</div>
+          <div class="xf-lab p">Precondition Statement</div>
+          <div class="xf-box p">Enchanted Echoes is set in different cities across continuities.</div>
+          <div class="xf-row"><div class="xf-lab e">Evidence Propositions</div><div class="xf-key"><span><i class="k-cond"></i><em class="t-cond">Condition</em></span></div></div>
+          <div class="xf-chain" style="--ac:#4e813f"><div class="xf-box e"><b class="cnd">In the TV adaptation</b>, Enchanted Echoes is set in Luminara.</div><span class="xf-arrow" aria-hidden="true"></span><div class="xf-box e">Luminara is named after Saint Thorne.</div></div>
+        </div>
+      </div>
+
+      <div class="struct" role="tabpanel" id="panel-imb" aria-labelledby="tab-imb" hidden>
+        <div class="desc">
+          <h3>Keep the minority view</h3>
+          <p>Open-ended questions have several valid perspectives. Dominant perspectives get whole paragraphs of support; each minority perspective appears in a single sentence but is equally required.</p>
+          <p class="meta">1,838 cases from retrieved web documents: 1,010 science (856 with four perspectives, 154 with three) and 828 policy. Average 9.8 paragraphs and 3,577 tokens.</p>
+          <p class="meta">All-Rec needs every perspective, major and minor.</p>
+          <div class="seg" role="group" aria-label="Domain">
+            <button type="button" data-dom="sci" aria-pressed="true">Science</button>
+            <button type="button" data-dom="pol" aria-pressed="false">Policy</button>
+          </div>
+        </div>
+        <div class="example xf">
+          <div id="imb-sci" class="xf-panel">
+            <div class="xf-title">Imbalanced Evidence: Science</div>
+            <div class="xf-lab q">Query</div>
+            <div class="xf-box q">What drives data memorization in diffusion models trained on small, structured datasets?</div>
+            <div class="xf-row"><div class="xf-lab e">Evidence Propositions</div><div class="xf-key"><span><i class="k-major"></i><em class="t-major">Major</em></span><span><i class="k-minor"></i><em class="t-minor">Minor</em></span></div></div>
+            <div class="xf-stack"><div class="xf-box major">High capacity overfits too few independent examples.</div></div>
+            <div class="xf-stack"><div class="xf-box major">Late-stage training memorizes individual examples.</div></div>
+            <div class="xf-box minor">Local denoising rewards instance-specific reconstruction.</div>
+          </div>
+          <div id="imb-pol" class="xf-panel" hidden>
+            <div class="xf-title">Imbalanced Evidence: Policy</div>
+            <div class="xf-lab q">Query</div>
+            <div class="xf-box q">I received a gift card or voucher. How long must it remain valid and when can the balance expire?</div>
+            <div class="xf-row"><div class="xf-lab e">Evidence Propositions</div><div class="xf-key"><span><i class="k-major"></i><em class="t-major">Major</em></span><span><i class="k-minor"></i><em class="t-minor">Minor</em></span></div></div>
+            <div class="xf-stack"><div class="xf-box major">Australia: at least 3 years.</div></div>
+            <div class="xf-box minor">United States: at least 5 years.</div>
+            <div class="xf-box minor">Ontario: most retail gift cards do not expire.</div>
+            <div class="xf-box minor">United Kingdom: expiry follows retailer terms.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="results" aria-labelledby="res-title">
+    <h2 id="res-title">Results</h2>
+    <p class="lede">All runs use the default sentence budget. All-Rec counts a case only if every evidence proposition survives.</p>
+    <div class="controls">
+      <span class="ctl-label" id="flt-label">Show</span>
+      <div class="seg" role="group" aria-labelledby="flt-label" id="filter">
+        <button type="button" data-g="all" aria-pressed="true">All</button>
+        <button type="button" data-g="ded" aria-pressed="false">Dedicated compressors</button>
+        <button type="button" data-g="open" aria-pressed="false">Open-weight LLMs</button>
+        <button type="button" data-g="prop" aria-pressed="false">Proprietary LLMs</button>
+      </div>
+    </div>
+    <div class="table-scroll" tabindex="0" role="region" aria-label="Results table, scrolls sideways">
+      <table id="lb">
+        <thead>
+          <tr class="grp"><th></th><th colspan="2">Parallel</th><th colspan="2">Conditional</th><th colspan="2">Imbalanced</th><th colspan="2"></th></tr>
+          <tr id="lb-head"></tr>
+        </thead>
+        <tbody id="lb-body"></tbody>
+      </table>
+    </div>
+    <p class="note">Percentages are All-Rec unless marked Para-Rec or Cond-Rec. Overall is All-Rec over all 4,102 cases. Green underline marks the best value in each column. RECOMP (abstractive) has no length control. EPR (Evidence Preservation Return) is 6·√(A/F), where A is overall All-Rec in percent and F is average inference TFLOPs per case; it is not reported for API models, whose compute is unknown.</p>
+  </section>
+
+  <section class="block" aria-labelledby="epr-title">
+    <h2 id="epr-title">Preservation per unit of compute</h2>
+    <div class="split">
+      <div style="display:grid;gap:16px;align-content:start">
+        <p class="lede">Each method is placed by its overall All-Rec and its average inference compute. Points on the same dashed curve share an EPR, and moving up or to the left raises it.</p>
+        <p class="lede">Scaling a model family raises recall but not in proportion to compute, so EPR peaks at moderate sizes. The most efficient method, RECOMP (extractive), preserves all evidence in fewer than 5% of cases.</p>
+        <div class="legend" id="fam-legend"></div>
+      </div>
+      <div class="chart-card">
+        <svg class="chart" id="scatter" viewBox="0 0 560 440" role="img" aria-labelledby="scatter-desc"><desc id="scatter-desc">Scatter plot of overall All-Rec against average TFLOPs per case on a log scale, for fifteen compressors.</desc></svg>
+        <div class="tooltip" id="tip" hidden></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" aria-labelledby="bud-title">
+    <h2 id="bud-title">More output budget widens the gap</h2>
+    <p class="lede">A larger sentence budget helps the strongest models most, while the weakest stay low at every budget.</p>
+    <div class="chips" id="bud-chips" role="group" aria-label="Highlight methods"></div>
+    <div class="panels" id="bud-panels"></div>
+    <p class="note">All-Rec at 0.5×, 1× and 2× the default sentence budget, with imbalanced pooling science and policy. Highlighted lines follow the paper's selection; click a name above to add or remove one. Dashed lines are dedicated compressors, and hovering a point shows the average output length.</p>
+  </section>
+
+  <section class="block" id="position" aria-labelledby="pos-title">
+    <h2 id="pos-title">Where the evidence sits</h2>
+    <p class="lede">We move the two evidence blocks of the 400 two-hop parallel cases next to each other, about half the context apart, or to opposite ends, then compress every version with three models at the default budget. Absolute placement had no consistent effect, so both charts average over it and over block order.</p>
+    <div class="pos-schema" aria-label="The three distance conditions">
+      <div class="pos-row"><span class="pos-name">Adjacent</span><div class="pos-strip" data-a="8" data-b="10"></div></div>
+      <div class="pos-row"><span class="pos-name">Middle</span><div class="pos-strip" data-a="3" data-b="13"></div></div>
+      <div class="pos-row"><span class="pos-name">Distant</span><div class="pos-strip" data-a="0" data-b="20"></div></div>
+      <div class="pos-key"><span><i class="ka"></i>Chain 1 block</span><span><i class="kb"></i>Chain 2 block</span><span><i class="kd"></i>Other paragraphs</span></div>
+    </div>
+    <div class="panels pos-panels">
+      <div class="chart-card pos-card">
+        <div class="pos-head"><h3>Separated evidence is kept together less often</h3>
+          <div class="seg" role="group" aria-label="Metric" id="pos-metric"><button type="button" data-m="para" aria-pressed="true">Para-Rec</button><button type="button" data-m="all" aria-pressed="false">All-Rec</button></div></div>
+        <svg class="chart" id="pos-dist" viewBox="0 0 520 300" role="img" aria-label="Para-Rec or All-Rec at three distances for three models"></svg>
+        <p class="note">From Adjacent to Middle, all three models lose 2.1 to 8.5 points of Para‑Rec. Gemma-4-E4B-it recovers at Distant, possibly because the context boundaries draw extra attention.</p>
+      </div>
+      <div class="chart-card pos-card">
+        <div class="pos-head"><h3>Evidence that comes first is kept more often</h3></div>
+        <svg class="chart" id="pos-order" viewBox="0 0 520 300" role="img" aria-label="Recall of the first proposition when its block comes earlier or later"></svg>
+        <p class="note">Recall of each chain's first proposition when its block comes earlier (filled) or later (open). Earlier wins by 2.5 to 10.6 points in every case except Gemma-4-E4B-it at Distant.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="case" aria-labelledby="case-title">
+    <h2 id="case-title">One case, seventeen compressors</h2>
+    <div class="case">
+      <div style="display:grid;gap:14px">
+        <div class="rid">parallel_2hop_0241</div>
+        <div class="case-q">In what county is the community of Lirion found, in the state where the series Midnight Spotlight is set?</div>
+        <div class="plist">
+          <div class="prop a"><b>p1</b><span>The drama series Midnight Spotlight is set in Virelia.</span></div>
+          <div class="prop a"><b>p2</b><span>Lirion (community) is located in Luminara County, Virelia.</span></div>
+          <div class="prop b"><b>p3</b><span>The documentary series Midnight Spotlight is set in Nocturnia.</span></div>
+          <div class="prop b"><b>p4</b><span>Lirion (community) is located in Ecliptica County, Nocturnia.</span></div>
+        </div>
+        <div class="matrix-scroll">
+          <table class="matrix" id="matrix" aria-label="Proposition judgements per compressor">
+            <thead><tr><th>Compressor</th><th>p1</th><th>p2</th><th>p3</th><th>p4</th><th>All-Rec</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="legend"><span><i style="background:var(--kept)"></i>kept</span><span><i style="border:1.5px solid var(--lost)"></i>lost</span><span>Click a row to read that output.</span></div>
+      </div>
+      <div class="output" id="output" aria-live="polite">
+        <div class="output-head"><h3 id="out-name"></h3><span class="tag" id="out-tag"></span></div>
+        <div class="output-text" id="out-text"></div>
+        <p class="output-note" id="out-note"></p>
+        <div class="legend"><span><i style="background:var(--mark-a)"></i>Virelia reading</span><span><i style="background:var(--mark-b)"></i>Nocturnia reading</span><span><s>distractor</s></span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" aria-labelledby="use-title">
+    <h2 id="use-title">Use KEEP-Bench</h2>
+    <div class="res">
+      <a href="https://huggingface.co/datasets/uclanlp/KEEP-Bench"><b>Dataset</b><span>4,102 cases with evidence propositions. Gated access under CC BY-NC 4.0.</span></a>
+      <a href="https://github.com/PlusLabNLP/KEEP-Bench"><b>Code</b><span>Compressors, the GPT-5.2 judge, scoring and FLOP estimates. MIT license.</span></a>
+      <a href="#" aria-disabled="true"><b>Paper</b><span>Preprint link coming soon.</span></a>
+    </div>
+    <div class="bib">
+      <pre id="bibtex">@article{man2026keepbench,
+  title   = {{KEEP-Bench}: Evaluating Evidence Preservation in Context Compression},
+  author  = {Man, Ziqing and Wu, Di and Gu, Jia-Chen and Zhang, Junyi and Chang, Kai-Wei and Peng, Nanyun},
+  year    = {2026}
+}</pre>
+      <button type="button" id="copy-bib">Copy</button>
+    </div>
+  </section>
+
+  <footer>
+    <span>KEEP-Bench · UCLA</span>
+    <span>Dataset released for research use under CC BY-NC 4.0.</span>
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var FAM = { ded: "--fam-ded", llama: "--fam-llama", qwen: "--fam-qwen", gemma: "--fam-gemma", prop: "--fam-prop" };
+  var FAM_NAME = { ded: "Dedicated compressors", llama: "Llama", qwen: "Qwen3", gemma: "Gemma-4", prop: "Proprietary" };
+  function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+  function famColor(f) { return "var(" + FAM[f] + ")"; }
+  function el(tag, attrs, html) {
+    var e = document.createElement(tag);
+    if (attrs) for (var k in attrs) e.setAttribute(k, attrs[k]);
+    if (html != null) e.innerHTML = html;
+    return e;
+  }
+  var SVGNS = "http://www.w3.org/2000/svg";
+  function s(tag, attrs, text) {
+    var e = document.createElementNS(SVGNS, tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
+  /* Table 2 and Table 7 of the paper. all = overall All-Rec over 4,102 cases (case-weighted). */
+  var M = [
+    { n: "RECOMP (abstractive)", f: "ded", g: "ded", pr: 0.0, pa: 0.0, cr: 5.6, ca: 1.4, sci: 0.2, pol: 0.0, all: 0.5, epr: 1.727, fl: 6.21 },
+    { n: "BRIEF-Pro", f: "ded", g: "ded", pr: 0.3, pa: 0.0, cr: 61.6, ca: 19.9, sci: 0.4, pol: 0.0, all: 6.7, epr: 3.320, fl: 21.94 },
+    { n: "RECOMP (extractive)", f: "ded", g: "ded", pr: 12.9, pa: 1.4, cr: 19.4, ca: 2.5, sci: 11.4, pol: 4.0, all: 4.8, epr: 10.716, fl: 1.49 },
+    { n: "EXIT", f: "ded", g: "ded", pr: 41.9, pa: 3.0, cr: 25.1, ca: 4.5, sci: 10.5, pol: 7.6, all: 6.3, epr: 1.941, fl: 59.96 },
+    { n: "Llama-3.2-1B-Instruct", f: "llama", g: "open", pr: 2.4, pa: 0.0, cr: 13.8, ca: 0.1, sci: 0.2, pol: 1.1, all: 0.3, epr: 0.893, fl: 13.74 },
+    { n: "Llama-3.2-3B-Instruct", f: "llama", g: "open", pr: 10.4, pa: 2.8, cr: 28.4, ca: 6.7, sci: 1.5, pol: 8.6, all: 4.9, epr: 2.180, fl: 37.47 },
+    { n: "Llama-3.1-8B-Instruct", f: "llama", g: "open", pr: 34.1, pa: 13.0, cr: 51.6, ca: 23.5, sci: 4.1, pol: 34.5, all: 18.6, epr: 2.981, fl: 75.53 },
+    { n: "Qwen3-4B", f: "qwen", g: "open", pr: 22.9, pa: 14.4, cr: 40.4, ca: 26.6, sci: 14.4, pol: 21.0, all: 19.8, epr: 3.445, fl: 60.04 },
+    { n: "Qwen3-8B", f: "qwen", g: "open", pr: 32.9, pa: 23.8, cr: 44.9, ca: 29.3, sci: 15.2, pol: 29.8, all: 24.7, epr: 3.291, fl: 82.17 },
+    { n: "Qwen3-14B", f: "qwen", g: "open", pr: 49.2, pa: 33.0, cr: 56.5, ca: 43.1, sci: 23.2, pol: 32.4, all: 33.8, epr: 2.955, fl: 139.49 },
+    { n: "Qwen3-32B", f: "qwen", g: "open", pr: 58.9, pa: 42.1, cr: 58.6, ca: 44.6, sci: 31.3, pol: 40.5, all: 39.9, epr: 2.060, fl: 338.80 },
+    { n: "Gemma-4-E2B-it", f: "gemma", g: "open", pr: 6.6, pa: 2.3, cr: 31.7, ca: 8.3, sci: 5.9, pol: 4.1, all: 5.5, epr: 3.219, fl: 19.27 },
+    { n: "Gemma-4-E4B-it", f: "gemma", g: "open", pr: 38.4, pa: 24.6, cr: 40.4, ca: 27.9, sci: 22.1, pol: 24.4, all: 25.0, epr: 5.163, fl: 33.82 },
+    { n: "Gemma-4-12B-it", f: "gemma", g: "open", pr: 57.9, pa: 43.9, cr: 65.8, ca: 54.5, sci: 63.2, pol: 52.1, all: 53.8, epr: 4.623, fl: 90.66 },
+    { n: "Gemma-4-31B-it", f: "gemma", g: "open", pr: 71.2, pa: 57.6, cr: 85.2, ca: 71.2, sci: 69.9, pol: 65.8, all: 66.8, epr: 3.168, fl: 239.60 },
+    { n: "GPT-5.4-mini", f: "prop", g: "prop", pr: 43.7, pa: 31.9, cr: 50.1, ca: 37.0, sci: 60.3, pol: 22.6, all: 38.7, epr: null, fl: null },
+    { n: "Claude-Haiku-4.5", f: "prop", g: "prop", pr: 76.1, pa: 63.8, cr: 83.5, ca: 70.0, sci: 45.5, pol: 65.0, all: 61.6, epr: null, fl: null }
+  ];
+
+  /* ---------- Figure 1 walkthrough ---------- */
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  (function () {
+    var fig = document.getElementById("fig"), box = document.getElementById("fig-box"), scroller = document.getElementById("fig-scroll");
+    var W = 1350, H = 574;
+    function fit() {
+      var k = Math.min(Math.max(scroller.clientWidth / W, 0.6), 1);
+      fig.style.transform = "scale(" + k + ")";
+      box.style.width = (W * k) + "px";
+      box.style.height = (H * k) + "px";
+    }
+    fit();
+    window.addEventListener("resize", fit);
+
+    /* Elements carry data-s (the step they appear in) and --d (their delay within that step). */
+    var rules = [];
+    for (var stg = 0; stg <= 3; stg++) {
+      var pre = '.fig[data-stage="' + stg + '"] ', hid = [], pop = [], drw = [], hl = [], sq = [];
+      for (var x = stg + 1; x <= 4; x++) {
+        var a = '[data-s="' + x + '"]';
+        hid.push(pre + ".a" + a, pre + ".pop" + a);
+        pop.push(pre + ".pop" + a);
+        drw.push(pre + ".draw" + a);
+        hl.push(pre + ".hl" + a);
+        sq.push(pre + ".sq" + a);
+      }
+      rules.push(hid.join(",") + "{opacity:0;transition-delay:0s}");
+      rules.push(pop.join(",") + "{transform:scale(.92)}");
+      rules.push(drw.join(",") + "{stroke-dashoffset:1;transition-delay:0s}");
+      rules.push(hl.join(",") + "{background-size:0% 100%;transition-delay:0s}");
+      rules.push(sq.join(",") + "{text-decoration-color:transparent;transition-delay:0s}");
+    }
+    var st = document.createElement("style");
+    st.textContent = rules.join("\n");
+    document.head.appendChild(st);
+
+    var btns = document.querySelectorAll(".fig-controls [data-go]");
+    var timers = [];
+    function later(ms, fn) { timers.push(setTimeout(fn, ms)); }
+    function clear() { timers.forEach(clearTimeout); timers = []; fig.classList.remove("spin"); }
+    function setStage(n) {
+      fig.setAttribute("data-stage", String(n));
+      btns.forEach(function (b) { b.setAttribute("aria-pressed", String(+b.dataset.go === n)); });
+    }
+    function runStage(n) {
+      setStage(n);
+      if (!reduce && n === 2) { fig.classList.add("spin"); later(1500, function () { fig.classList.remove("spin"); }); }
+    }
+    function play() {
+      clear();
+      if (reduce) { setStage(4); return; }
+      setStage(0);
+      later(60, function () { runStage(1); });
+      later(2300, function () { runStage(2); });
+      later(4900, function () { runStage(3); });
+      later(9500, function () { runStage(4); });
+    }
+    btns.forEach(function (b) {
+      b.addEventListener("click", function () { clear(); var n = +b.dataset.go; setStage(n - 1); later(30, function () { runStage(n); }); });
+    });
+    document.getElementById("replay").addEventListener("click", play);
+    if (!reduce) {
+      if ("IntersectionObserver" in window) {
+        var started = false;
+        var io = new IntersectionObserver(function (es) {
+          if (!started && es[0].isIntersecting) { started = true; play(); io.disconnect(); }
+        }, { threshold: 0.35 });
+        io.observe(scroller);
+      } else { play(); }
+    }
+  })();
+
+  /* ---------- pilot bars ---------- */
+  var pilot = [["Original context", 94.0, "188/200"], ["Faithful compression", 96.0, "192/200"], ["Unfaithful compression", 11.5, "23/200"]];
+  var pb = document.getElementById("pilot");
+  pilot.forEach(function (p) {
+    var row = el("div", { "class": "bar-row" });
+    row.appendChild(el("span", { "class": "lab" }, p[0]));
+    var t = el("div", { "class": "track", role: "img", "aria-label": p[0] + ": " + p[1] + "% (" + p[2] + ")" });
+    var f = el("div", { "class": "fill" + (p[1] < 50 ? " low" : "") });
+    f.style.width = p[1] + "%";
+    t.appendChild(f);
+    row.appendChild(t);
+    row.appendChild(el("span", { "class": "val num" }, p[1].toFixed(1) + "%"));
+    pb.appendChild(row);
+  });
+
+  /* ---------- tabs ---------- */
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('[role="tab"]'));
+  function selectTab(t) {
+    tabs.forEach(function (x) {
+      var on = x === t;
+      x.setAttribute("aria-selected", String(on));
+      x.tabIndex = on ? 0 : -1;
+      document.getElementById(x.getAttribute("aria-controls")).hidden = !on;
+    });
+    if (window.keepFixWidows) window.keepFixWidows();
+  }
+  tabs.forEach(function (t, i) {
+    t.addEventListener("click", function () { selectTab(t); });
+    t.addEventListener("keydown", function (e) {
+      var d = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+      if (!d) return;
+      var nt = tabs[(i + d + tabs.length) % tabs.length];
+      selectTab(nt); nt.focus(); e.preventDefault();
+    });
+  });
+  document.querySelectorAll("[data-dom]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      document.querySelectorAll("[data-dom]").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); });
+      document.getElementById("imb-sci").hidden = b.dataset.dom !== "sci";
+      document.getElementById("imb-pol").hidden = b.dataset.dom !== "pol";
+    });
+  });
+
+  /* ---------- leaderboard ---------- */
+  var COLS = [
+    { k: "n", label: "Method", num: false },
+    { k: "pr", label: "Para-Rec" }, { k: "pa", label: "All-Rec" },
+    { k: "cr", label: "Cond-Rec" }, { k: "ca", label: "All-Rec" },
+    { k: "sci", label: "Science" }, { k: "pol", label: "Policy" },
+    { k: "all", label: "Overall", bar: true }, { k: "epr", label: "EPR", dec: 3 }
+  ];
+  var best = {};
+  COLS.forEach(function (c) {
+    if (c.k === "n") return;
+    best[c.k] = Math.max.apply(null, M.map(function (m) { return m[c.k] == null ? -1 : m[c.k]; }));
+  });
+  var sortKey = "all", sortDir = -1, group = "all";
+  var head = document.getElementById("lb-head");
+  COLS.forEach(function (c) {
+    var th = el("th", { scope: "col" });
+    var b = el("button", { type: "button", "data-k": c.k, "aria-sort": "none" }, c.label + ' <span class="arr" aria-hidden="true"></span>');
+    b.addEventListener("click", function () {
+      if (sortKey === c.k) sortDir = -sortDir; else { sortKey = c.k; sortDir = c.k === "n" ? 1 : -1; }
+      renderTable();
+    });
+    th.appendChild(b);
+    head.appendChild(th);
+  });
+  function fmt(v, c) {
+    if (v == null) return '<span class="dim">–</span>';
+    var t = c.dec ? v.toFixed(c.dec) : v.toFixed(1) + "%";
+    return v === best[c.k] ? '<span class="best">' + t + "</span>" : t;
+  }
+  function renderTable() {
+    head.querySelectorAll("button").forEach(function (b) {
+      var on = b.dataset.k === sortKey;
+      b.setAttribute("aria-sort", on ? (sortDir > 0 ? "ascending" : "descending") : "none");
+      b.querySelector(".arr").textContent = on ? (sortDir > 0 ? "▲" : "▼") : "";
+    });
+    var rows = M.filter(function (m) { return group === "all" || m.g === group; }).slice();
+    rows.sort(function (a, b) {
+      var x = a[sortKey], y = b[sortKey];
+      if (sortKey === "n") return sortDir * x.localeCompare(y);
+      if (x == null) return 1; if (y == null) return -1;
+      return sortDir * (x - y);
+    });
+    var body = document.getElementById("lb-body");
+    body.innerHTML = "";
+    rows.forEach(function (m) {
+      var tr = el("tr");
+      COLS.forEach(function (c) {
+        if (c.k === "n") {
+          tr.appendChild(el("td", { "class": "method" }, '<span class="dot" style="background:' + famColor(m.f) + '"></span>' + m.n));
+        } else if (c.bar) {
+          tr.appendChild(el("td", { "class": "overall" }, '<span class="cellbar"><span class="t"><i style="width:' + m.all + '%"></i></span><span>' + fmt(m.all, c) + "</span></span>"));
+        } else {
+          tr.appendChild(el("td", null, fmt(m[c.k], c)));
+        }
+      });
+      body.appendChild(tr);
+    });
+  }
+  document.querySelectorAll("#filter button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      group = b.dataset.g;
+      document.querySelectorAll("#filter button").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); });
+      renderTable();
+    });
+  });
+  renderTable();
+
+  /* ---------- tooltip ---------- */
+  var tip = document.getElementById("tip");
+  function showTip(card, evt, html) {
+    tip.innerHTML = html;
+    tip.hidden = false;
+    var r = card.getBoundingClientRect();
+    var x, y;
+    if (evt && evt.clientX) { x = evt.clientX - r.left; y = evt.clientY - r.top; }
+    else { var tr = evt.target.getBoundingClientRect(); x = tr.left - r.left + tr.width / 2; y = tr.top - r.top; }
+    var w = tip.offsetWidth, h = tip.offsetHeight;
+    x = Math.min(Math.max(8, x + 14), r.width - w - 8);
+    y = y - h - 12; if (y < 4) y += h + 30;
+    tip.style.left = x + "px"; tip.style.top = y + "px";
+  }
+  function hideTip() { tip.hidden = true; }
+
+  /* ---------- EPR scatter ---------- */
+  (function () {
+    var svg = document.getElementById("scatter");
+    var card = svg.parentNode;
+    var W = 560, H = 440, L = 60, R = 18, T = 14, B = 44;
+    var xmin = Math.log10(1), xmax = Math.log10(400), ymax = 70, ymin = -8;
+    function X(f) { return L + (Math.log10(f) - xmin) / (xmax - xmin) * (W - L - R); }
+    function Y(a) { return T + (ymax - a) / (ymax - ymin) * (H - T - B); }
+    var g = s("g", { "class": "grid" });
+    [0, 10, 20, 30, 40, 50, 60, 70].forEach(function (v) {
+      g.appendChild(s("line", { x1: L, x2: W - R, y1: Y(v), y2: Y(v) }));
+      svg.appendChild(s("text", { x: L - 8, y: Y(v) + 4, "text-anchor": "end" }, v + "%"));
+    });
+    [1, 3, 10, 30, 100, 300].forEach(function (v) {
+      g.appendChild(s("line", { x1: X(v), x2: X(v), y1: T, y2: H - B }));
+      svg.appendChild(s("text", { x: X(v), y: H - B + 18, "text-anchor": "middle" }, String(v)));
+    });
+    svg.insertBefore(g, svg.firstChild.nextSibling);
+    svg.appendChild(s("text", { x: (L + W - R) / 2, y: H - 6, "text-anchor": "middle" }, "Average TFLOPs per case (log scale)"));
+    svg.appendChild(s("text", { x: 12, y: T + (H - T - B) / 2, transform: "rotate(-90 12 " + (T + (H - T - B) / 2) + ")", "text-anchor": "middle" }, "Overall All-Rec"));
+    [2, 4, 8].forEach(function (e) {
+      var k = Math.pow(e / 6, 2), d = "", last = null;
+      for (var i = 0; i <= 120; i++) {
+        var f = Math.pow(10, xmin + (xmax - xmin) * i / 120), a = k * f;
+        if (a > ymax) break;
+        d += (d ? "L" : "M") + X(f).toFixed(1) + " " + Y(a).toFixed(1);
+        last = [f, a];
+      }
+      svg.appendChild(s("path", { "class": "iso", d: d }));
+      var lx = last[1] > ymax - 4 ? X(last[0]) - 4 : X(last[0]) - 4;
+      svg.appendChild(s("text", { "class": "iso-label", x: lx, y: Y(last[1]) - 6, "text-anchor": "end" }, "EPR " + e));
+    });
+    /* every point labelled; offsets placed by hand so no two labels collide */
+    var LABEL = {
+      "RECOMP (extractive)": [10, 4, "start"], "RECOMP (abstractive)": [0, 20, "middle"], "BRIEF-Pro": [4, -14, "start"], "EXIT": [10, 4, "start"],
+      "Llama-3.2-1B-Instruct": [8, 20, "start"], "Llama-3.2-3B-Instruct": [0, 21, "middle"], "Llama-3.1-8B-Instruct": [10, 10, "start"],
+      "Qwen3-4B": [-10, 4, "end"], "Qwen3-8B": [10, -2, "start"], "Qwen3-14B": [10, 4, "start"], "Qwen3-32B": [-8, -10, "end"],
+      "Gemma-4-E2B-it": [-8, -10, "end"], "Gemma-4-E4B-it": [-10, 4, "end"], "Gemma-4-12B-it": [-10, 4, "end"], "Gemma-4-31B-it": [-11, 4, "end"]
+    };
+    function short(n) { return n.replace("-Instruct", "").replace(/-it$/, ""); }
+    var pts = M.filter(function (m) { return m.fl != null; });
+    pts.forEach(function (m) {
+      var c = s("circle", { "class": "pt", cx: X(m.fl), cy: Y(m.all), r: 6.5, fill: famColor(m.f), tabindex: 0, "aria-label": m.n + ": All-Rec " + m.all + "%, " + m.fl + " TFLOPs, EPR " + m.epr.toFixed(3) });
+      var html = "<b>" + m.n + "</b><br>All-Rec " + m.all.toFixed(1) + "%<br>" + m.fl.toFixed(2) + " TFLOPs per case<br>EPR " + m.epr.toFixed(3);
+      c.addEventListener("mousemove", function (e) { showTip(card, e, html); });
+      c.addEventListener("mouseleave", hideTip);
+      c.addEventListener("focus", function (e) { showTip(card, e, html); });
+      c.addEventListener("blur", hideTip);
+      svg.appendChild(c);
+    });
+    pts.forEach(function (m) {
+      var lb = LABEL[m.n];
+      svg.appendChild(s("text", { "class": "ptlabel", x: X(m.fl) + lb[0], y: Y(m.all) + lb[1], "text-anchor": lb[2] }, short(m.n)));
+    });
+    var leg = document.getElementById("fam-legend");
+    ["ded", "llama", "qwen", "gemma"].forEach(function (f) {
+      leg.appendChild(el("span", null, '<i style="background:' + famColor(f) + ';border-radius:50%"></i>' + FAM_NAME[f]));
+    });
+  })();
+
+  /* ---------- budget panels ---------- */
+  (function () {
+    /* Table 10: All-Rec (output tokens) at 0.5x, 1x, 2x */
+    var B = {
+      "BRIEF-Pro": [[0.0, 133, 0.0, 202, 0.9, 332], [8.2, 143, 19.9, 201, 63.9, 332], [0.2, 186, 0.2, 327, 1.4, 586]],
+      "RECOMP (extractive)": [[0.0, 111, 1.4, 219, 6.6, 431], [0.5, 104, 2.5, 207, 11.6, 410], [1.5, 169, 8.1, 308, 22.1, 587]],
+      "EXIT": [[0.1, 109, 3.0, 217, 14.9, 430], [1.1, 99, 4.5, 200, 16.3, 402], [2.8, 191, 9.2, 342, 21.2, 633]],
+      "Llama-3.2-1B-Instruct": [[0.0, 106, 0.0, 171, 0.0, 306], [0.2, 66, 0.1, 120, 2.4, 237], [0.2, 147, 0.6, 230, 1.6, 353]],
+      "Llama-3.2-3B-Instruct": [[3.0, 119, 2.8, 202, 2.9, 331], [3.7, 72, 6.7, 124, 12.7, 232], [4.0, 112, 4.7, 173, 8.1, 274]],
+      "Llama-3.1-8B-Instruct": [[11.4, 102, 13.0, 211, 24.7, 388], [8.9, 62, 23.5, 122, 38.8, 237], [14.7, 125, 17.8, 210, 24.0, 364]],
+      "Qwen3-4B": [[14.2, 117, 14.4, 211, 18.8, 305], [13.3, 63, 26.6, 136, 44.9, 242], [12.1, 126, 17.4, 214, 22.0, 332]],
+      "Qwen3-8B": [[13.8, 87, 23.8, 150, 26.8, 247], [14.0, 57, 29.3, 110, 47.4, 186], [18.7, 114, 21.8, 184, 31.0, 290]],
+      "Qwen3-14B": [[21.6, 107, 33.0, 189, 37.3, 272], [21.8, 61, 43.1, 119, 61.0, 194], [19.5, 115, 27.3, 203, 38.0, 329]],
+      "Qwen3-32B": [[24.2, 99, 42.1, 184, 50.0, 277], [20.5, 55, 44.6, 115, 64.1, 192], [22.1, 121, 35.4, 220, 47.1, 334]],
+      "Gemma-4-E2B-it": [[0.8, 75, 2.3, 119, 2.4, 181], [2.6, 41, 8.3, 83, 13.9, 139], [5.2, 95, 5.1, 141, 10.6, 222]],
+      "Gemma-4-E4B-it": [[13.9, 97, 24.6, 157, 29.3, 256], [13.1, 58, 27.9, 105, 48.6, 179], [14.2, 124, 23.1, 180, 32.9, 283]],
+      "Gemma-4-12B-it": [[25.7, 89, 43.9, 141, 59.3, 243], [23.6, 52, 54.5, 96, 72.7, 170], [40.3, 130, 58.2, 194, 68.6, 277]],
+      "Gemma-4-31B-it": [[33.3, 87, 57.6, 130, 71.4, 203], [47.5, 55, 71.2, 94, 85.9, 166], [55.0, 122, 68.1, 186, 75.8, 256]],
+      "GPT-5.4-mini": [[19.3, 110, 31.9, 163, 39.4, 242], [23.8, 56, 37.0, 102, 52.1, 173], [34.7, 131, 43.3, 187, 52.0, 267]],
+      "Claude-Haiku-4.5": [[50.1, 109, 63.8, 225, 70.0, 338], [41.1, 59, 70.0, 122, 88.3, 251], [43.5, 112, 54.3, 168, 63.3, 279]]
+    };
+    var on = {};
+    ["Gemma-4-31B-it", "Claude-Haiku-4.5", "Gemma-4-12B-it", "Llama-3.2-1B-Instruct", "Gemma-4-E2B-it", "Llama-3.2-3B-Instruct", "BRIEF-Pro", "RECOMP (extractive)", "EXIT"].forEach(function (n) { on[n] = true; });
+    var names = Object.keys(B);
+    var fam = {}; M.forEach(function (m) { fam[m.n] = m.f; });
+    var chipsBox = document.getElementById("bud-chips");
+    var panelsBox = document.getElementById("bud-panels");
+    var lines = [];
+    names.forEach(function (n) {
+      var c = el("button", { type: "button", "class": "chip", "aria-pressed": String(!!on[n]) }, '<span class="dot" style="background:' + famColor(fam[n]) + '"></span>' + n);
+      c.addEventListener("click", function () { on[n] = !on[n]; c.setAttribute("aria-pressed", String(!!on[n])); refresh(); });
+      chipsBox.appendChild(c);
+    });
+    var W = 300, H = 230, L = 38, R = 14, T = 10, Bm = 30;
+    var xs = [L + 18, (L + W - R) / 2, W - R - 18];
+    function Y(v) { return T + (1 - v / 100) * (H - T - Bm); }
+    ["Parallel", "Conditional", "Imbalanced"].forEach(function (title, si) {
+      var p = el("div", { "class": "chart-card panel" });
+      p.appendChild(el("h3", null, title));
+      var svg = s("svg", { "class": "chart", viewBox: "0 0 " + W + " " + H, role: "img", "aria-label": title + ": All-Rec at three budgets" });
+      var g = s("g", { "class": "grid" });
+      [0, 25, 50, 75, 100].forEach(function (v) {
+        g.appendChild(s("line", { x1: L, x2: W - R, y1: Y(v), y2: Y(v) }));
+        svg.appendChild(s("text", { x: L - 6, y: Y(v) + 4, "text-anchor": "end" }, v + "%"));
+      });
+      svg.appendChild(g);
+      ["0.5×", "1×", "2×"].forEach(function (b, i) { svg.appendChild(s("text", { x: xs[i], y: H - 8, "text-anchor": "middle" }, b)); });
+      var gl = s("g"); svg.appendChild(gl);
+      names.forEach(function (n) {
+        var d = B[n][si];
+        var pts = [[xs[0], Y(d[0])], [xs[1], Y(d[2])], [xs[2], Y(d[4])]];
+        var path = s("path", { "class": "line" + (fam[n] === "ded" ? " dash" : ""), d: "M" + pts.map(function (q) { return q[0] + " " + q[1]; }).join("L"), stroke: famColor(fam[n]) });
+        gl.appendChild(path);
+        var dots = pts.map(function (q, i) {
+          var c = s("circle", { cx: q[0], cy: q[1], r: 3.5, fill: famColor(fam[n]), tabindex: -1 });
+          var html = "<b>" + n + "</b><br>" + title + ", " + ["0.5×", "1×", "2×"][i] + "<br>All-Rec " + d[i * 2].toFixed(1) + "%<br>" + d[i * 2 + 1] + " output tokens";
+          c.addEventListener("mousemove", function (e) { showTip2(p, e, html); });
+          c.addEventListener("mouseleave", function () { tip2(p).hidden = true; });
+          gl.appendChild(c);
+          return c;
+        });
+        lines.push({ n: n, path: path, dots: dots });
+      });
+      p.appendChild(svg);
+      p.appendChild(el("div", { "class": "tooltip", hidden: "" }));
+      panelsBox.appendChild(p);
+    });
+    function tip2(p) { return p.querySelector(".tooltip"); }
+    function showTip2(p, evt, html) {
+      var t = tip2(p); t.innerHTML = html; t.hidden = false;
+      var r = p.getBoundingClientRect();
+      var x = Math.min(Math.max(8, evt.clientX - r.left + 12), r.width - t.offsetWidth - 8);
+      var y = evt.clientY - r.top - t.offsetHeight - 12; if (y < 4) y += t.offsetHeight + 30;
+      t.style.left = x + "px"; t.style.top = y + "px";
+    }
+    function refresh() {
+      lines.forEach(function (l) {
+        var v = !!on[l.n];
+        l.path.classList.toggle("on", v);
+        l.dots.forEach(function (d) { d.style.opacity = v ? 1 : 0; d.style.pointerEvents = v ? "auto" : "none"; });
+        if (v) l.path.parentNode.appendChild(l.path), l.dots.forEach(function (d) { l.path.parentNode.appendChild(d); });
+      });
+    }
+    refresh();
+  })();
+
+  /* ---------- evidence position (Table 5 of the paper) ---------- */
+  (function () {
+    document.querySelectorAll(".pos-strip").forEach(function (st) {
+      var a = +st.dataset.a, b = +st.dataset.b;
+      for (var i = 0; i < 22; i++) {
+        var c = (i === a || i === a + 1) ? "a" : (i === b || i === b + 1) ? "b" : "";
+        st.appendChild(el("i", c ? { "class": c } : null));
+      }
+    });
+    var MODELS = [["Qwen3-8B", "qwen"], ["Llama-3.1-8B-Instruct", "llama"], ["Gemma-4-E4B-it", "gemma"]];
+    var DIST = {
+      "Qwen3-8B": { para: [53.3, 51.2, 48.5], all: [43.5, 41.0, 38.4] },
+      "Llama-3.1-8B-Instruct": { para: [50.8, 47.4, 41.8], all: [31.1, 27.1, 26.2] },
+      "Gemma-4-E4B-it": { para: [65.5, 57.0, 67.5], all: [51.0, 42.3, 52.1] }
+    };
+    var ORDER = {
+      "Qwen3-8B": [[65.3, 59.8], [64.0, 59.2], [59.6, 57.0]],
+      "Llama-3.1-8B-Instruct": [[68.4, 57.8], [65.7, 56.4], [61.9, 52.4]],
+      "Gemma-4-E4B-it": [[75.5, 71.7], [71.8, 69.3], [75.5, 76.8]]
+    };
+    var NAMES = ["Adjacent", "Middle", "Distant"];
+
+    var dsvg = document.getElementById("pos-dist");
+    function drawDist(metric) {
+      while (dsvg.firstChild) dsvg.removeChild(dsvg.firstChild);
+      var W = 520, H = 300, L = 44, R = 150, T = 14, B = 34, lo = 20, hi = 70;
+      var xs = [L + 30, (L + W - R) / 2, W - R - 30];
+      function Y(v) { return T + (1 - (v - lo) / (hi - lo)) * (H - T - B); }
+      var g = s("g", { "class": "grid" });
+      [20, 30, 40, 50, 60, 70].forEach(function (v) {
+        g.appendChild(s("line", { x1: L, x2: W - R, y1: Y(v), y2: Y(v) }));
+        dsvg.appendChild(s("text", { x: L - 6, y: Y(v) + 4, "text-anchor": "end" }, v + "%"));
+      });
+      dsvg.insertBefore(g, dsvg.firstChild);
+      NAMES.forEach(function (n, i) { dsvg.appendChild(s("text", { x: xs[i], y: H - 10, "text-anchor": "middle" }, n)); });
+      var ends = [];
+      MODELS.forEach(function (m) {
+        var v = DIST[m[0]][metric], col = famColor(m[1]);
+        dsvg.appendChild(s("path", { d: "M" + v.map(function (y, i) { return xs[i] + " " + Y(y); }).join("L"), stroke: col, "stroke-width": 2.6, fill: "none" }));
+        v.forEach(function (y, i) {
+          dsvg.appendChild(s("circle", { cx: xs[i], cy: Y(y), r: 4.5, fill: col }));
+          dsvg.appendChild(s("text", { "class": "vlabel", x: xs[i], y: m[0] === "Llama-3.1-8B-Instruct" ? Y(y) + 19 : Y(y) - 9, "text-anchor": "middle" }, y.toFixed(1)));
+        });
+        ends.push([Y(v[2]), m[0], col]);
+      });
+      ends.sort(function (a, b) { return a[0] - b[0]; });
+      for (var k = 1; k < ends.length; k++) if (ends[k][0] - ends[k - 1][0] < 15) ends[k][0] = ends[k - 1][0] + 15;
+      ends.forEach(function (e) { dsvg.appendChild(s("text", { "class": "ptlabel", x: W - R + 12, y: e[0] + 4, fill: e[2] }, e[1])); });
+    }
+    drawDist("para");
+    document.querySelectorAll("#pos-metric button").forEach(function (b) {
+      b.addEventListener("click", function () {
+        document.querySelectorAll("#pos-metric button").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); });
+        drawDist(b.dataset.m);
+      });
+    });
+
+    var osvg = document.getElementById("pos-order");
+    (function () {
+      var W = 520, H = 300, L = 178, R = 54, T = 8, B = 30, lo = 50, hi = 80;
+      function X(v) { return L + (v - lo) / (hi - lo) * (W - L - R); }
+      var g = s("g", { "class": "grid" });
+      [50, 60, 70, 80].forEach(function (v) {
+        g.appendChild(s("line", { x1: X(v), x2: X(v), y1: T, y2: H - B }));
+        osvg.appendChild(s("text", { x: X(v), y: H - 10, "text-anchor": "middle" }, v + "%"));
+      });
+      osvg.appendChild(g);
+      var rowH = (H - T - B) / 9, r = 0;
+      MODELS.forEach(function (m, mi) {
+        var col = famColor(m[1]);
+        osvg.appendChild(s("text", { "class": "ptlabel", x: 4, y: T + rowH * (r + 1.5) + 4 }, m[0].replace("-Instruct", "")));
+        NAMES.forEach(function (n, di) {
+          var y = T + rowH * (r + 0.5), e = ORDER[m[0]][di][0], l = ORDER[m[0]][di][1];
+          osvg.appendChild(s("text", { x: L - 10, y: y + 4, "text-anchor": "end" }, n));
+          osvg.appendChild(s("line", { x1: X(Math.min(e, l)), x2: X(Math.max(e, l)), y1: y, y2: y, stroke: col, "stroke-width": 2 }));
+          osvg.appendChild(s("circle", { cx: X(l), cy: y, r: 5, fill: "var(--sheet)", stroke: col, "stroke-width": 2 }));
+          osvg.appendChild(s("circle", { cx: X(e), cy: y, r: 5, fill: col }));
+          var d = e - l;
+          osvg.appendChild(s("text", { "class": "vlabel", x: W - R + 8, y: y + 4 }, (d >= 0 ? "+" : "−") + Math.abs(d).toFixed(1)));
+          r++;
+        });
+        if (mi < 2) osvg.appendChild(s("line", { x1: 0, x2: W, y1: T + rowH * r, y2: T + rowH * r, stroke: "var(--rule)" }));
+      });
+    })();
+  })();
+
+  /* ---------- case explorer ---------- */
+  (function () {
+    var J = [
+      ["RECOMP (abstractive)", "0100"], ["BRIEF-Pro", "1001"], ["RECOMP (extractive)", "0101"], ["EXIT", "0011"],
+      ["Llama-3.2-1B-Instruct", "0000"], ["Llama-3.2-3B-Instruct", "0101"], ["Llama-3.1-8B-Instruct", "0100"],
+      ["Qwen3-4B", "0101"], ["Qwen3-8B", "0101"], ["Qwen3-14B", "0101"], ["Qwen3-32B", "0101"],
+      ["Gemma-4-E2B-it", "1101"], ["Gemma-4-E4B-it", "0101"], ["Gemma-4-12B-it", "0101"], ["Gemma-4-31B-it", "0101"],
+      ["GPT-5.4-mini", "0101"], ["Claude-Haiku-4.5", "1111"]
+    ];
+    var OUT = {
+      "Claude-Haiku-4.5": {
+        t: "The Midnight Spotlight series appears in the material as two records linking a fictional town setting, a state, and a community named Lirion with its county. One Midnight Spotlight paragraph says the [a:drama series is set in the fictional town of Derby, Virelia], and the [a:Lirion (community), Virelia] paragraph identifies Lirion as an unincorporated community located in [a:Luminara County, Virelia]. Another Midnight Spotlight paragraph says the [b:documentary series is set in the fictional town of Derby, Nocturnia], and the [b:Lirion (community), Nocturnia] paragraph identifies Lirion as an unincorporated community in [b:Ecliptica County, Nocturnia]. Read together, those setting and county records yield [a:Luminara County] on the Virelia side and [b:Ecliptica County] on the Nocturnia side.",
+        note: "The only output that keeps all four propositions. It keeps the genre labels, so each series stays tied to its own state and its own Lirion."
+      },
+      "Gemma-4-31B-it": {
+        t: "Midnight Spotlight is described as being set in the state of [a:Virelia] in one record and in the state of [b:Nocturnia] in another. In [a:Virelia], the community of Lirion is located in [a:Luminara County]. In [b:Nocturnia], the community of Lirion is located in [b:Ecliptica County].",
+        note: "Both states and both counties survive, so both answers are recoverable. Without the genre labels it describes one series with two conflicting settings. Gemma-4-12B-it, Qwen3-32B and GPT-5.4-mini produce the same merged account."
+      },
+      "Qwen3-14B": {
+        t: "The community of Lirion is mentioned in multiple locations: one in [a:Luminara County, Virelia]; another in [b:Ecliptica County, Nocturnia]; and a third in [x:Somerset County, New Jersey]. The series Midnight Spotlight is set in the fictional town of Derby, [a:Virelia], which is in the same state as the Lirion in Luminara County. Therefore, the Lirion in Luminara County, Virelia, is the most relevant to the question. The county is [a:Luminara County].",
+        note: "Lists both counties, then resolves the question to the Virelia reading alone."
+      },
+      "Gemma-4-E2B-it": {
+        t: "The series Midnight Spotlight is set in the fictional town of Derby, [a:Virelia, which is the setting for the drama]. The community of Lirion is an unincorporated community located in the town of Lirion, in [a:Luminara County, Virelia]. [x:The Cape Lirion document places Cape Lirion in the Northwest Territories, Canada.] The [b:Lirion (community), Nocturnia] document places Lirion in [b:Ecliptica County, Nocturnia], United States.",
+        note: "Ties the drama to Virelia but drops the documentary's setting, and spends a sentence on an unrelated Cape Lirion."
+      },
+      "Llama-3.2-3B-Instruct": {
+        t: "The community of Lirion is found in the state of [a:Virelia], which is set in the fictional town of Derby, [b:Nocturnia], in the series Midnight Spotlight. The Lirion in the series is an unincorporated community in the town of Lirion, [b:Ecliptica County, Nocturnia], United States, with a post office using ZIP code 53148. Another Lirion is an unincorporated community in the town of Lirion, [a:Luminara County, Virelia], United States, with a post office using ZIP code 53148. Read together, those Lirion records identify the Lirion in the series as the one in Nocturnia and the Lirion in Virelia as the one in Luminara County.",
+        note: "Cross-binds the two readings: it places Lirion in Virelia but describes Virelia as set in Derby, Nocturnia."
+      },
+      "EXIT": {
+        t: "[b:Lirion (community), Nocturnia] Lirion is an unincorporated community in the town of Lirion, [b:Ecliptica County, Nocturnia], United States. [x:Lirion, Oregon Lirion is a city in Linn County, Oregon, United States.] The Midnight Spotlight The [b:documentary series Midnight Spotlight is set in Derby, Nocturnia], a fictional town nicknamed \"The Hat Capital of the World\", and centers on a cable-access talk show of the same name created by Jennifer Bass, a housewife devoted to television. [x:Lirion, New Jersey Lirion is an unincorporated community located within Bernards Township, in Somerset County, New Jersey, United States.]",
+        note: "Keeps the Nocturnia reading and nothing from Virelia. Two of its four sentences go to Lirion communities in Oregon and New Jersey."
+      },
+      "RECOMP (abstractive)": {
+        t: "The community of Lirion is located in [a:Luminara County, Virelia], which is in the state of [x:Oregon]. Therefore, the state where the series Midnight Spotlight is set is [x:Oregon].",
+        note: "Has no length control. It keeps the Virelia county, then places Virelia in Oregon, a state taken from the unrelated Lirion, Oregon document, and gives Oregon as the series’ setting."
+      },
+      "BRIEF-Pro": {
+        t: "The [a:drama series Midnight Spotlight, set in the fictional town of Derby, Virelia] (\"The Hat Capital of the World\"), featured a local talk show aptly titled \"The Midnight Spotlight\", which was created by housewife and talk television fan Jennifer Bass, which aired on cable access. The program became a hit with viewers, leading to the series being picked up for syndication. The shows' setting took place in Bass' home with the garage being converted into an area for the studio audience, since the local television station in Bass' home town (possibly a major city in [a:Virelia], since a channel 65 was circled as the station in the credits that showed a newspaper TV listings that also featured actual TV channels from Madison, Rockford and Chicago) could not accommodate any space for the production, so a satellite van and cameras were bought over to help tape the show for the airing. Lirion is an unincorporated community in the town of Lirion, [b:Ecliptica County, Nocturnia], United States. It sits along Highway 36 in a rural area west-southwest of Burlington.",
+        note: "Ties the drama series to Virelia but spends most of its length on that paragraph's background. It keeps the Nocturnia county and drops both the documentary series and the Virelia county."
+      },
+      "Llama-3.2-1B-Instruct": {
+        t: "Midnight Spotlight, the 2004 talk show series, is set in the fictional town of Derby, [b:Nocturnia], and features a local talk show aptly titled \"The Midnight Spotlight\", which was created by housewife and talk television fan Jennifer Bass. The show's setting took place in Bass' home with the garage being converted into an area for the studio audience, since the local television station in Bass' home town (possibly a major city in [b:Nocturnia], since a channel 65 was circled as the station in the credits that showed a newspaper TV listings that also featured actual TV channels from Madison, Rockford, and Chicago) could not accommodate any space for the production, so a satellite van and cameras were brought in over to help tape the show for the airing. The show's setting was later confirmed to be in [b:Nocturnia], a fictional town nicknamed \"The Hat Capital of the World\", and the show's creator, Jennifer Bass, was a housewife devoted to television. The show's setting was later confirmed to be in [b:Nocturnia], a fictional town nicknamed \"The Hat Capital of the World\", and the show's creator, Jennifer Bass, was a housewife devoted to television.",
+        note: "Keeps none of the four propositions. It never mentions Lirion, mixes the two series' paragraphs, adds a 2004 date from an unrelated document, and repeats its last sentence."
+      },
+      "Llama-3.1-8B-Instruct": {
+        t: "Midnight Spotlight appears in the material as two series records linking a title, a setting, and a county. One Midnight Spotlight paragraph says the series is set in the fictional town of Derby, [a:Virelia], and identifies it as \"The Hat Capital of the World\". The [a:Lirion (community), Virelia] paragraph says Lirion is an unincorporated community located in [a:Luminara County, Virelia], which fixes the county on that side of the material. Another Midnight Spotlight paragraph says the series is set in Derby, [b:Nocturnia], and identifies it as \"The Hat Capital of the World\", which fixes the alternate setting and county on that side of the material.",
+        note: "Keeps the Virelia county and both settings without genre labels. It says the Nocturnia county is fixed but never names it."
+      },
+      "Qwen3-4B": {
+        t: "The community of Lirion is identified in two records as being in different counties within different states. One Lirion paragraph places Lirion in [a:Luminara County, Virelia], and links it to the series Midnight Spotlight, which is set in [a:Virelia]. Another Lirion paragraph places Lirion in [b:Ecliptica County, Nocturnia], and links it to the series Midnight Spotlight, which is set in [b:Nocturnia]. The Midnight Spotlight series is described as being set in the fictional town of Derby, [a:Virelia], and the other version is set in the fictional town of Derby, [b:Nocturnia]. Therefore, the community of Lirion is found in [a:Luminara County, Virelia], where the series Midnight Spotlight is set.",
+        note: "Keeps both counties and both settings, but without the genre labels the two series cannot be told apart. It then resolves the question to the Virelia reading."
+      },
+      "Qwen3-8B": {
+        t: "The community of Lirion appears in the material as two records linking it to different states and counties. One Lirion entry identifies it as an unincorporated community in [a:Luminara County, Virelia], along Virelia Highway 36. Another Lirion entry identifies it as an unincorporated community in [b:Ecliptica County, Nocturnia], along Highway 36. The Midnight Spotlight series is set in Derby, [a:Virelia], which aligns with the Lirion community in Luminara County, Virelia.",
+        note: "Keeps both counties but only the Virelia setting, with no genre label, and resolves the question to that reading."
+      },
+      "Qwen3-32B": {
+        t: "The Midnight Spotlight is described in two entries as being set in the fictional town of Derby, located in the state of [a:Virelia] or [b:Nocturnia]. One entry identifies Lirion as an unincorporated community in [a:Luminara County, Virelia], while another identifies a similarly named Lirion in [b:Ecliptica County, Nocturnia]. Both communities share the same ZIP code and are located west-southwest of Burlington along Highway 36. The ambiguity in the state name leaves both Luminara County and Ecliptica County as possible answers.",
+        note: "Keeps both counties and notes that both answers remain possible, but treats the ambiguity as an uncertain state for one series rather than two distinct series."
+      },
+      "Gemma-4-E4B-it": {
+        t: "The series Midnight Spotlight is set in the fictional town of Derby, [a:Virelia], which is described as \"The Hat Capital of the World.\" The community of Lirion is mentioned in relation to two different locations: one in [a:Luminara County, Virelia], and another in [b:Ecliptica County, Nocturnia]. The Lirion in Luminara County, Virelia, is located in Luminara County. The Lirion in Ecliptica County, Nocturnia, is located in Ecliptica County.",
+        note: "Keeps both counties but only the Virelia setting, with no genre label. The Nocturnia setting is gone."
+      },
+      "Gemma-4-12B-it": {
+        t: "The series Midnight Spotlight is associated with two different fictional settings in the documents. One record states the series is set in Derby, [a:Virelia], and another record states it is set in Derby, [b:Nocturnia]. In the [a:Virelia] setting, the community of Lirion is located in [a:Luminara County]. In the [b:Nocturnia] setting, the community of Lirion is located in [b:Ecliptica County].",
+        note: "The same merged account as Gemma-4-31B-it: one series with two settings, both counties kept, no genre labels."
+      },
+      "GPT-5.4-mini": {
+        t: "The series Midnight Spotlight is set in Derby, and the documents give two possible states for that fictional town: [a:Virelia] and [b:Nocturnia]. If the relevant state is [a:Virelia], the community of Lirion is in [a:Luminara County], as stated in the [a:Lirion (community), Virelia] entry. If the relevant state is [b:Nocturnia], the community of Lirion is in [b:Ecliptica County], as stated in the [b:Lirion (community), Nocturnia] entry.",
+        note: "Presents the two states as alternatives for one series and keeps both counties, but drops the genre labels. The automatic judge marked p2 not entailed; the paper corrects it to entailed by hand, which does not change All-Rec."
+      },
+      "RECOMP (extractive)": {
+        t: "[a:Lirion (community), Virelia] Lirion is an unincorporated community located in the town of Lirion, in [a:Luminara County, Virelia]. [b:Lirion (community), Nocturnia] Lirion is an unincorporated community in the town of Lirion, [b:Ecliptica County, Nocturnia], United States. [x:Lirion, Oregon Lirion is a city in Linn County, Oregon, United States. Lirion, New Jersey Lirion is an unincorporated community located within Bernards Township, in Somerset County, New Jersey, United States.]",
+        note: "Fills all four sentences with Lirion county statements, including two distractors, and omits both series."
+      }
+    };
+    function render(t) {
+      var esc = t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+      return esc.replace(/\[(a|b|x):([^\]]+)\]/g, function (_, k, v) { return '<span class="e' + k + '">' + v + "</span>"; });
+    }
+    var body = document.querySelector("#matrix tbody");
+    var rows = [];
+    J.forEach(function (j) {
+      var has = !!OUT[j[0]];
+      var tr = el("tr", has ? { "class": "has-out", tabindex: 0, "aria-selected": "false" } : null);
+      tr.appendChild(el("td", null, j[0]));
+      j[1].split("").forEach(function (b, i) {
+        tr.appendChild(el("td", null, '<span class="cell ' + (b === "1" ? "y" : "n") + '" role="img" aria-label="p' + (i + 1) + (b === "1" ? " kept" : " lost") + '"></span>'));
+      });
+      tr.appendChild(el("td", null, j[1] === "1111" ? '<span class="tag kept">yes</span>' : '<span class="tag lost">no</span>'));
+      if (has) {
+        tr.addEventListener("click", function () { pick(j); });
+        tr.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(j); } });
+      }
+      rows.push([tr, j[0]]);
+      body.appendChild(tr);
+    });
+    function pick(j) {
+      rows.forEach(function (r) { if (r[0].classList.contains("has-out")) r[0].setAttribute("aria-selected", String(r[1] === j[0])); });
+      var o = OUT[j[0]];
+      var kept = j[1].split("").filter(function (b) { return b === "1"; }).length;
+      document.getElementById("out-name").textContent = j[0];
+      var tag = document.getElementById("out-tag");
+      tag.textContent = kept + " of 4 kept";
+      tag.className = "tag " + (kept === 4 ? "kept" : "lost");
+      document.getElementById("out-text").innerHTML = render(o.t);
+      document.getElementById("out-note").textContent = o.note;
+      if (window.keepFixWidows) window.keepFixWidows();
+    }
+    pick(J[13]);
+  })();
+
+  /* ---------- keep paragraphs from ending on a stub line ---------- */
+  (function () {
+    var SEL = ".lede, .note, .caption, .struct .desc p, .output-note, .findings span, .abs-lead, .abs-cols p, .stat span";
+    var orig = new Map();
+    function lineWidths(p) {
+      var r = document.createRange(); r.selectNodeContents(p);
+      var rects = r.getClientRects(), lines = {};
+      for (var i = 0; i < rects.length; i++) { var k = Math.round(rects[i].bottom / 4); lines[k] = (lines[k] || 0) + rects[i].width; }
+      return Object.keys(lines).map(Number).sort(function (a, b) { return a - b; }).map(function (k) { return lines[k]; });
+    }
+    function fix(p) {
+      var t = p.lastChild;
+      if (!t || t.nodeType !== 3) return;
+      if (!orig.has(t)) orig.set(t, t.nodeValue);
+      var base = orig.get(t);
+      t.nodeValue = base;
+      if (!p.offsetParent) return;
+      var just = getComputedStyle(p).textAlign === "justify";
+      p.style.textAlign = "left";
+      var pw = p.getBoundingClientRect().width, lw = lineWidths(p), ok = true, minLast = just ? 0.22 : 0.3;
+      if (lw.length >= 2 && lw[lw.length - 1] / pw < minLast) {
+        ok = false;
+        var words = base.replace(/\s+$/, "").split(" ");
+        for (var k = 2; k <= Math.min(14, words.length - 1); k++) {
+          t.nodeValue = words.slice(0, words.length - k).join(" ") + " " + words.slice(words.length - k).join("\u00a0").replace(/-/g, "\u2011");
+          var w = lineWidths(p);
+          if (w.length === lw.length && w[w.length - 1] / pw >= minLast && w[w.length - 2] / pw >= (just ? 0.7 : 0.5)) { ok = true; break; }
+        }
+        if (!ok) t.nodeValue = base;
+      }
+      p.style.textAlign = "";
+    }
+    function run() { document.querySelectorAll(SEL).forEach(fix); }
+    window.keepFixWidows = run;
+    var timer;
+    window.addEventListener("resize", function () { clearTimeout(timer); timer = setTimeout(run, 120); });
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(run);
+    run();
+  })();
+
+  /* ---------- BibTeX ---------- */
+  document.getElementById("copy-bib").addEventListener("click", function () {
+    var b = this, text = document.getElementById("bibtex").textContent;
+    function done(ok) { b.textContent = ok ? "Copied" : "Select and copy"; setTimeout(function () { b.textContent = "Copy"; }, 1800); }
+    function fallback() {
+      var r = document.createRange(); r.selectNodeContents(document.getElementById("bibtex"));
+      var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r); done(false);
+    }
+    try { navigator.clipboard.writeText(text).then(function () { done(true); }, fallback); } catch (e) { fallback(); }
+  });
+})();
+</script>
+
+
+</body>
+</html>
