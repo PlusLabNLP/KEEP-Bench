@@ -1,0 +1,7 @@
+anthropic
+httpx
+huggingface_hub
+openai
+spacy
+tqdm
+transformers

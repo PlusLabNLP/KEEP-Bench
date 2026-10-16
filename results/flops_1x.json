@@ -1,0 +1,114 @@
+[
+  {
+    "method": "qwen3/32B",
+    "name": "Qwen3-32B",
+    "tflops_per_case": 338.8048,
+    "prefix_amortized": true,
+    "cases": 4102
+  },
+  {
+    "method": "gemma4/31B",
+    "name": "Gemma-4-31B-it",
+    "tflops_per_case": 239.5968,
+    "prefix_amortized": true,
+    "cases": 4102
+  },
+  {
+    "method": "qwen3/14B",
+    "name": "Qwen3-14B",
+    "tflops_per_case": 139.4935,
+    "prefix_amortized": true,
+    "cases": 4102
+  },
+  {
+    "method": "gemma4/12B",
+    "name": "Gemma-4-12B-it",
+    "tflops_per_case": 90.657,
+    "prefix_amortized": true,
+    "cases": 4102
+  },
+  {
+    "method": "qwen3/8B",
+    "name": "Qwen3-8B",
+    "tflops_per_case": 82.1683,
+    "prefix_amortized": true,
+    "cases": 4102
+  },
+  {
+    "method": "llama3/8B",
+    "name": "Llama-3.1-8B-Instruct",
+    "tflops_per_case": 75.5275,
+    "prefix_amortized": true,
+    "cases": 4102
+  },
+  {
+    "method": "exit/gemma-2b-fullctx",
+    "name": "EXIT (full-context scoring)",
+    "tflops_per_case": 60.9406,
+    "prefix_amortized": false,
+    "cases": 4102
+  },
+  {
+    "method": "qwen3/4B",
+    "name": "Qwen3-4B",
+    "tflops_per_case": 60.0427,
+    "prefix_amortized": true,
+    "cases": 4102
+  },
+  {
+    "method": "exit/gemma-2b-doc",
+    "name": "EXIT",
+    "tflops_per_case": 59.9624,
+    "prefix_amortized": false,
+    "cases": 4102
+  },
+  {
+    "method": "llama3/3B",
+    "name": "Llama-3.2-3B-Instruct",
+    "tflops_per_case": 37.4695,
+    "prefix_amortized": true,
+    "cases": 4102
+  },
+  {
+    "method": "gemma4/E4B",
+    "name": "Gemma-4-E4B-it",
+    "tflops_per_case": 33.8195,
+    "prefix_amortized": true,
+    "cases": 4102
+  },
+  {
+    "method": "brief-pro/3b",
+    "name": "BRIEF-Pro",
+    "tflops_per_case": 21.9443,
+    "prefix_amortized": false,
+    "cases": 4102
+  },
+  {
+    "method": "gemma4/E2B",
+    "name": "Gemma-4-E2B-it",
+    "tflops_per_case": 19.2678,
+    "prefix_amortized": true,
+    "cases": 4102
+  },
+  {
+    "method": "llama3/1B",
+    "name": "Llama-3.2-1B-Instruct",
+    "tflops_per_case": 13.7403,
+    "prefix_amortized": true,
+    "cases": 4102
+  },
+  {
+    "method": "recomp-abstractive/t5-large",
+    "name": "RECOMP (abstractive)",
+    "tflops_per_case": 6.2117,
+    "prefix_amortized": false,
+    "cases": 4102
+  },
+  {
+    "method": "recomp-extractive/contriever",
+    "name": "RECOMP (extractive)",
+    "tflops_per_case": 1.491,
+    "prefix_amortized": false,
+    "cases": 4102
+  }
+]

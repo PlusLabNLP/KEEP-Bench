@@ -1,0 +1,14 @@
+# Dataset files written by scripts/prepare_data.py (data/icl/ is tracked)
+data/*
+!data/icl/
+
+# Model outputs, judge inputs and outputs, merged checkpoints
+outputs/
+entailment_check_input/
+entailment_check_output/
+models/
+
+__pycache__/
+*.pyc
+*.tmp
+.DS_Store
