@@ -389,7 +389,7 @@ header.title .btn[aria-disabled="true"] { background: transparent; color: var(--
 .findings b { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.01em; white-space: nowrap; }
 .findings span { color: var(--muted); }
 .abs-full summary { cursor: pointer; font-weight: 600; color: var(--accent); width: max-content; }
-.abs-cols { columns: 2 320px; column-gap: 44px; margin-top: 14px; color: var(--muted); font-size: 0.98rem; }
+.abs-cols { columns: 2; column-gap: 44px; margin-top: 14px; color: var(--muted); font-size: 0.98rem; }
 .abs-cols p { margin: 0 0 12px; }
 
 /* evidence-structure examples, redrawn from the paper's example figure */
@@ -428,6 +428,7 @@ header.title .btn[aria-disabled="true"] { background: transparent; color: var(--
 .xf .xf-stack::before { inset: -2.7px -2px 2.7px 2px; background: #e8f2e3; }
 .xf .xf-stack::after { inset: -5.4px -4px 5.4px 4px; background: #f2f7ef; z-index: -2; }
 @media (max-width: 900px) { .abs-grid { grid-template-columns: 1fr; gap: 24px; } }
+@media (max-width: 1099px) { .abs-cols { columns: auto; } }
 @media (max-width: 520px) { .xf .xf-chains { grid-template-columns: 1fr; } .findings li { grid-template-columns: 1fr; gap: 2px; } }
 
 /* evidence position */
@@ -451,6 +452,9 @@ svg.chart .vlabel { fill: var(--ink); font-size: 11.5px; font-weight: 600; }
 /* justify only full-width text; narrow columns stay ragged-right so word gaps stay even */
 section.block > .lede, section.block > .note, .teaser > .caption, .abs-cols p { text-align: justify; hyphens: manual; }
 @media (max-width: 520px) { section.block > .lede, section.block > .note, .teaser > .caption, .abs-cols p { text-align: left; } }
+.why-points { display: grid; gap: 22px; align-content: start; }
+.why-pt { display: grid; gap: 6px; }
+.why-pt h3 { font-size: var(--step-1); }
 </style>
 
 </head>
@@ -602,20 +606,19 @@ section.block > .lede, section.block > .note, .teaser > .caption, .abs-cols p { 
     <div class="abs-grid">
       <p class="abs-lead">Context compression can drop evidence that a question needs, and QA metrics underestimate the loss because a reader can still answer correctly from an unfaithful compression. <span style="white-space:nowrap">KEEP-Bench</span> checks the compressed context directly, on 4,102 cases that require keeping plausible reference resolutions, explicit qualifiers and minority perspectives.</p>
       <ul class="findings">
-        <li><b>≤ 10%</b><span>Dedicated compressors keep all required evidence in at most 10% of cases.</span></li>
-        <li><b>66.8%</b><span>The strongest open-weight model (31B) succeeds in two of three cases on 3.1K-token inputs. The strongest proprietary model reaches 61.6%.</span></li>
-        <li><b>Structure</b><span>Results vary sharply across evidence structures, so testing one structure can misjudge a compressor.</span></li>
-        <li><b>EPR</b><span>Recall per unit of compute peaks at moderate model scales, where recall is still low.</span></li>
-        <li><b>Budget</b><span>A larger output budget mainly helps models that are already strong, widening the gap.</span></li>
+        <li><b>66.8%</b><span>Even with tailored prompting, the best open-weight model (31B) keeps all required evidence in only 66.8% of cases on 3.1K-token inputs. The best proprietary model reaches 61.6%.</span></li>
+        <li><b>Structure</b><span>Performance varies sharply across evidence structures, so conclusions from limited structures may be biased.</span></li>
+        <li><b>EPR</b><span>Evidence Preservation Return relates recall to inference FLOPs. It peaks at moderate scales <span style="white-space:nowrap">(4B–8B)</span>, where recall remains low.</span></li>
+        <li><b>Budget</b><span>A larger output budget mainly helps already strong models and widens the gap, yet their stronger preservation comes at a steep computational cost.</span></li>
       </ul>
     </div>
     <details class="abs-full">
       <summary>Read the full abstract</summary>
       <div class="abs-cols">
         <p>Context compression improves long-context efficiency but may introduce faithfulness issues through an information bottleneck. Existing evaluations rely on QA metrics, but a reader can still answer correctly from an unfaithful compression, so these metrics underestimate such loss. To bridge this gap, we introduce KEEP-Bench, a diagnostic benchmark that directly assesses compression faithfulness with 4,102 cases across three challenging settings that require keeping evidence for <em>plausible reference resolutions</em>, <em>explicit qualifiers</em>, and <em>minority perspectives</em>.</p>
-        <p>Dedicated compressors trained for context compression preserve all required evidence in at most 10% of cases. General LLMs prompted to compress do better but remain unreliable: despite context windows exceeding 100K tokens and inputs averaging only 3.1K, the strongest open-weight model (31B) succeeds in only 66.8% of cases and the strongest proprietary model in 61.6%. Performance also varies sharply across evidence structures, so conclusions from limited structures may be biased.</p>
-        <p>We further introduce Evidence Preservation Return (EPR), relating evidence recall to inference FLOPs; it tends to peak at moderate scales within each family, where absolute recall remains low. Additional output budget mainly benefits already strong models, widening rather than closing capability gaps.</p>
-        <p>Existing compression methods thus offer either efficiency without reliable information preservation, or stronger preservation at a steep computational cost. These findings highlight the need for future work on compressors that preserve information reliably under small computation budgets, rather than relying on model scaling or large output budgets.</p>
+        <p>Experiments show that even with tailored prompting, the strongest models remain unreliable: despite context windows exceeding 100K tokens and inputs averaging only 3.1K tokens, the best open-weight model (31B) preserves all required evidence in only 66.8% of cases, and the best proprietary model in only 61.6%. Performance also varies sharply across evidence structures, so conclusions from limited structures may be biased.</p>
+        <p>We further introduce a metric, Evidence Preservation Return (EPR), to relate evidence recall to inference FLOPs, and find that it peaks at moderate scales <span style="white-space:nowrap">(4B–8B)</span>, where recall remains low. Additional output budget mainly benefits already strong models and widens capability gaps, yet the stronger preservation of these models comes at a steep computational cost.</p>
+        <p>These findings highlight the importance for future work to investigate compressors with strong information preservation under a small computation budget, rather than relying on a large output budget or model scaling.</p>
       </div>
     </details>
   </section>
@@ -623,14 +626,20 @@ section.block > .lede, section.block > .note, .teaser > .caption, .abs-cols p { 
   <section class="block" aria-labelledby="why-title">
     <h2 id="why-title">Why check the evidence directly</h2>
     <div class="split">
-      <div style="display:grid;gap:16px">
-        <p class="lede">Compression quality is usually inferred from how well a reader answers questions from the compressed context. Lost evidence does hurt those answers. But a reader can still answer correctly from an unfaithful compression, so QA metrics underestimate how much evidence is lost.</p>
-        <p class="lede">KEEP-Bench removes the reader from the measurement. It annotates the evidence each question needs and asks whether the compression kept all of it.</p>
+      <div class="why-points">
+        <div class="why-pt">
+          <h3>Faithful compression matters</h3>
+          <p class="lede">In a pilot on 200 parallel cases, a reader answers both questions correctly in 96.0% of cases from faithful compressions, on par with the full context, but in only 11.5% from unfaithful ones. Lost evidence costs 84.5 points of accuracy, so faithfulness directly limits what a reader can do.</p>
+        </div>
+        <div class="why-pt">
+          <h3>QA metrics miss part of the loss</h3>
+          <p class="lede">Those 11.5%, 23 of the 200 cases, still count as correct even though required evidence is gone. Answer accuracy therefore underestimates evidence loss, so KEEP-Bench checks the compressed context itself.</p>
+        </div>
       </div>
       <div class="chart-card" style="display:grid;gap:16px">
         <h3>Reader answers both questions correctly</h3>
         <div class="bars" id="pilot"></div>
-        <p class="note">Pilot study on 200 parallel cases. Faithful compression matches the original context. Unfaithful compression drops accuracy by 84.5 points, yet 23 of the 200 answers are still fully correct.</p>
+        <p class="note">Pilot study on 200 parallel cases. A case counts as correct only when the reader matches both gold answers.</p>
       </div>
     </div>
   </section>
@@ -653,10 +662,10 @@ section.block > .lede, section.block > .note, .teaser > .caption, .abs-cols p { 
 
       <div class="struct" role="tabpanel" id="panel-par" aria-labelledby="tab-par">
         <div class="desc">
-          <h3>Keep both readings</h3>
-          <p>An underspecified mention can refer to two fictional entities. Each reading induces its own reasoning chain, and the compression must keep both chains, with each fact bound to the right entity.</p>
+          <h3>Keep both interpretations</h3>
+          <p>Each case contains underspecified entity mentions whose referents differ between two valid interpretations. Each interpretation induces its own reasoning chain with disjoint referents and evidence, so the compression has to keep both.</p>
           <p class="meta">900 cases: 400 two-hop, 300 three-hop, 200 four-hop. Built from MuSiQue with fictionalized entities, so omitted evidence cannot be recovered from memory. Average 22.8 paragraphs and 2,799 tokens.</p>
-          <p class="meta">Para-Rec counts a case when the facts that tell the two readings apart are kept. All-Rec needs all four propositions.</p>
+          <p class="meta">Para-Rec counts a case when the evidence that tells the two interpretations apart survives compression. All-Rec needs every proposition in both chains.</p>
         </div>
         <div class="example xf">
           <div class="xf-title">Parallel Evidence</div>
@@ -819,7 +828,7 @@ section.block > .lede, section.block > .note, .teaser > .caption, .abs-cols p { 
         <div class="output-head"><h3 id="out-name"></h3><span class="tag" id="out-tag"></span></div>
         <div class="output-text" id="out-text"></div>
         <p class="output-note" id="out-note"></p>
-        <div class="legend"><span><i style="background:var(--mark-a)"></i>Virelia reading</span><span><i style="background:var(--mark-b)"></i>Nocturnia reading</span><span><s>distractor</s></span></div>
+        <div class="legend"><span><i style="background:var(--mark-a)"></i>Virelia interpretation</span><span><i style="background:var(--mark-b)"></i>Nocturnia interpretation</span><span><s>distractor</s></span></div>
       </div>
     </div>
   </section>
@@ -1259,13 +1268,21 @@ section.block > .lede, section.block > .note, .teaser > .caption, .abs-cols p { 
     var dsvg = document.getElementById("pos-dist");
     function drawDist(metric) {
       while (dsvg.firstChild) dsvg.removeChild(dsvg.firstChild);
-      var W = 520, H = 300, L = 44, R = 150, T = 14, B = 34, lo = 20, hi = 70;
+      var W = 520, H = 300, L = 44, R = 150, T = 18, B = 34;
+      var lo = metric === "para" ? 40 : 20, hi = metric === "para" ? 70 : 60;
       var xs = [L + 30, (L + W - R) / 2, W - R - 30];
       function Y(v) { return T + (1 - (v - lo) / (hi - lo)) * (H - T - B); }
       var g = s("g", { "class": "grid" });
-      [20, 30, 40, 50, 60, 70].forEach(function (v) {
-        g.appendChild(s("line", { x1: L, x2: W - R, y1: Y(v), y2: Y(v) }));
-        dsvg.appendChild(s("text", { x: L - 6, y: Y(v) + 4, "text-anchor": "end" }, v + "%"));
+      for (var tv = lo; tv <= hi; tv += 10) {
+        g.appendChild(s("line", { x1: L, x2: W - R, y1: Y(tv), y2: Y(tv) }));
+        dsvg.appendChild(s("text", { x: L - 6, y: Y(tv) + 4, "text-anchor": "end" }, tv + "%"));
+      }
+      /* value labels: highest point at each distance gets its label above, the others below unless there is room above */
+      var above = {};
+      [0, 1, 2].forEach(function (i) {
+        var col = MODELS.map(function (m) { return [DIST[m[0]][metric][i], m[0]]; }).sort(function (a, b) { return b[0] - a[0]; });
+        above[col[0][1] + i] = true;
+        for (var r = 1; r < col.length; r++) above[col[r][1] + i] = (Y(col[r][0]) - Y(col[r - 1][0])) > 34 && !above[col[r - 1][1] + i + "below"];
       });
       dsvg.insertBefore(g, dsvg.firstChild);
       NAMES.forEach(function (n, i) { dsvg.appendChild(s("text", { x: xs[i], y: H - 10, "text-anchor": "middle" }, n)); });
@@ -1275,7 +1292,7 @@ section.block > .lede, section.block > .note, .teaser > .caption, .abs-cols p { 
         dsvg.appendChild(s("path", { d: "M" + v.map(function (y, i) { return xs[i] + " " + Y(y); }).join("L"), stroke: col, "stroke-width": 2.6, fill: "none" }));
         v.forEach(function (y, i) {
           dsvg.appendChild(s("circle", { cx: xs[i], cy: Y(y), r: 4.5, fill: col }));
-          dsvg.appendChild(s("text", { "class": "vlabel", x: xs[i], y: m[0] === "Llama-3.1-8B-Instruct" ? Y(y) + 19 : Y(y) - 9, "text-anchor": "middle" }, y.toFixed(1)));
+          dsvg.appendChild(s("text", { "class": "vlabel", x: xs[i], y: above[m[0] + i] ? Y(y) - 9 : Y(y) + 19, "text-anchor": "middle" }, y.toFixed(1)));
         });
         ends.push([Y(v[2]), m[0], col]);
       });
@@ -1340,7 +1357,7 @@ section.block > .lede, section.block > .note, .teaser > .caption, .abs-cols p { 
       },
       "Qwen3-14B": {
         t: "The community of Lirion is mentioned in multiple locations: one in [a:Luminara County, Virelia]; another in [b:Ecliptica County, Nocturnia]; and a third in [x:Somerset County, New Jersey]. The series Midnight Spotlight is set in the fictional town of Derby, [a:Virelia], which is in the same state as the Lirion in Luminara County. Therefore, the Lirion in Luminara County, Virelia, is the most relevant to the question. The county is [a:Luminara County].",
-        note: "Lists both counties, then resolves the question to the Virelia reading alone."
+        note: "Lists both counties, then resolves the question to the Virelia interpretation alone."
       },
       "Gemma-4-E2B-it": {
         t: "The series Midnight Spotlight is set in the fictional town of Derby, [a:Virelia, which is the setting for the drama]. The community of Lirion is an unincorporated community located in the town of Lirion, in [a:Luminara County, Virelia]. [x:The Cape Lirion document places Cape Lirion in the Northwest Territories, Canada.] The [b:Lirion (community), Nocturnia] document places Lirion in [b:Ecliptica County, Nocturnia], United States.",
@@ -1348,11 +1365,11 @@ section.block > .lede, section.block > .note, .teaser > .caption, .abs-cols p { 
       },
       "Llama-3.2-3B-Instruct": {
         t: "The community of Lirion is found in the state of [a:Virelia], which is set in the fictional town of Derby, [b:Nocturnia], in the series Midnight Spotlight. The Lirion in the series is an unincorporated community in the town of Lirion, [b:Ecliptica County, Nocturnia], United States, with a post office using ZIP code 53148. Another Lirion is an unincorporated community in the town of Lirion, [a:Luminara County, Virelia], United States, with a post office using ZIP code 53148. Read together, those Lirion records identify the Lirion in the series as the one in Nocturnia and the Lirion in Virelia as the one in Luminara County.",
-        note: "Cross-binds the two readings: it places Lirion in Virelia but describes Virelia as set in Derby, Nocturnia."
+        note: "Cross-binds the two interpretations: it places Lirion in Virelia but describes Virelia as set in Derby, Nocturnia."
       },
       "EXIT": {
         t: "[b:Lirion (community), Nocturnia] Lirion is an unincorporated community in the town of Lirion, [b:Ecliptica County, Nocturnia], United States. [x:Lirion, Oregon Lirion is a city in Linn County, Oregon, United States.] The Midnight Spotlight The [b:documentary series Midnight Spotlight is set in Derby, Nocturnia], a fictional town nicknamed \"The Hat Capital of the World\", and centers on a cable-access talk show of the same name created by Jennifer Bass, a housewife devoted to television. [x:Lirion, New Jersey Lirion is an unincorporated community located within Bernards Township, in Somerset County, New Jersey, United States.]",
-        note: "Keeps the Nocturnia reading and nothing from Virelia. Two of its four sentences go to Lirion communities in Oregon and New Jersey."
+        note: "Keeps the Nocturnia interpretation and nothing from Virelia. Two of its four sentences go to Lirion communities in Oregon and New Jersey."
       },
       "RECOMP (abstractive)": {
         t: "The community of Lirion is located in [a:Luminara County, Virelia], which is in the state of [x:Oregon]. Therefore, the state where the series Midnight Spotlight is set is [x:Oregon].",
@@ -1372,11 +1389,11 @@ section.block > .lede, section.block > .note, .teaser > .caption, .abs-cols p { 
       },
       "Qwen3-4B": {
         t: "The community of Lirion is identified in two records as being in different counties within different states. One Lirion paragraph places Lirion in [a:Luminara County, Virelia], and links it to the series Midnight Spotlight, which is set in [a:Virelia]. Another Lirion paragraph places Lirion in [b:Ecliptica County, Nocturnia], and links it to the series Midnight Spotlight, which is set in [b:Nocturnia]. The Midnight Spotlight series is described as being set in the fictional town of Derby, [a:Virelia], and the other version is set in the fictional town of Derby, [b:Nocturnia]. Therefore, the community of Lirion is found in [a:Luminara County, Virelia], where the series Midnight Spotlight is set.",
-        note: "Keeps both counties and both settings, but without the genre labels the two series cannot be told apart. It then resolves the question to the Virelia reading."
+        note: "Keeps both counties and both settings, but without the genre labels the two series cannot be told apart. It then resolves the question to the Virelia interpretation."
       },
       "Qwen3-8B": {
         t: "The community of Lirion appears in the material as two records linking it to different states and counties. One Lirion entry identifies it as an unincorporated community in [a:Luminara County, Virelia], along Virelia Highway 36. Another Lirion entry identifies it as an unincorporated community in [b:Ecliptica County, Nocturnia], along Highway 36. The Midnight Spotlight series is set in Derby, [a:Virelia], which aligns with the Lirion community in Luminara County, Virelia.",
-        note: "Keeps both counties but only the Virelia setting, with no genre label, and resolves the question to that reading."
+        note: "Keeps both counties but only the Virelia setting, with no genre label, and resolves the question to that interpretation."
       },
       "Qwen3-32B": {
         t: "The Midnight Spotlight is described in two entries as being set in the fictional town of Derby, located in the state of [a:Virelia] or [b:Nocturnia]. One entry identifies Lirion as an unincorporated community in [a:Luminara County, Virelia], while another identifies a similarly named Lirion in [b:Ecliptica County, Nocturnia]. Both communities share the same ZIP code and are located west-southwest of Burlington along Highway 36. The ambiguity in the state name leaves both Luminara County and Ecliptica County as possible answers.",
@@ -1445,25 +1462,50 @@ section.block > .lede, section.block > .note, .teaser > .caption, .abs-cols p { 
       for (var i = 0; i < rects.length; i++) { var k = Math.round(rects[i].bottom / 4); lines[k] = (lines[k] || 0) + rects[i].width; }
       return Object.keys(lines).map(Number).sort(function (a, b) { return a - b; }).map(function (k) { return lines[k]; });
     }
+    /* Joins the last n words of p with no-break spaces, across inline elements such as <em>. */
+    function bind(nodes, n) {
+      var left = n, active = n > 0, seen = false;
+      for (var i = nodes.length - 1; i >= 0; i--) {
+        var s = orig.get(nodes[i]);
+        if (active) {
+          var out = "", j = s.length;
+          while (j > 0) {
+            if (/\s/.test(s[j - 1])) {
+              var st = j - 1;
+              while (st > 0 && /\s/.test(s[st - 1])) st--;
+              if (!seen || (i === 0 && st === 0)) out = s.slice(st, j) + out;
+              else if (active && left > 0) { out = "\u00a0" + out; left--; }
+              else { out = s.slice(st, j) + out; active = false; }
+              j = st;
+            } else {
+              out = (active && s[j - 1] === "-" ? "\u2011" : s[j - 1]) + out;
+              seen = true;
+              j--;
+            }
+          }
+          s = out;
+        }
+        nodes[i].nodeValue = s;
+      }
+      return left === 0;
+    }
     function fix(p) {
-      var t = p.lastChild;
-      if (!t || t.nodeType !== 3) return;
-      if (!orig.has(t)) orig.set(t, t.nodeValue);
-      var base = orig.get(t);
-      t.nodeValue = base;
+      var nodes = [], tw = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
+      while (tw.nextNode()) nodes.push(tw.currentNode);
+      if (!nodes.length) return;
+      nodes.forEach(function (n) { if (!orig.has(n)) orig.set(n, n.nodeValue); });
+      bind(nodes, 0);
       if (!p.offsetParent) return;
       var just = getComputedStyle(p).textAlign === "justify";
       p.style.textAlign = "left";
       var pw = p.getBoundingClientRect().width, lw = lineWidths(p), ok = true, minLast = just ? 0.22 : 0.3;
       if (lw.length >= 2 && lw[lw.length - 1] / pw < minLast) {
         ok = false;
-        var words = base.replace(/\s+$/, "").split(" ");
-        for (var k = 2; k <= Math.min(14, words.length - 1); k++) {
-          t.nodeValue = words.slice(0, words.length - k).join(" ") + " " + words.slice(words.length - k).join("\u00a0").replace(/-/g, "\u2011");
+        for (var k = 1; k <= 13 && bind(nodes, k); k++) {
           var w = lineWidths(p);
-          if (w.length === lw.length && w[w.length - 1] / pw >= minLast && w[w.length - 2] / pw >= (just ? 0.7 : 0.5)) { ok = true; break; }
+          if (w.length === lw.length && w[w.length - 1] / pw >= minLast - 0.03 && w[w.length - 2] / pw >= (just ? 0.7 : 0.5)) { ok = true; break; }
         }
-        if (!ok) t.nodeValue = base;
+        if (!ok) bind(nodes, 0);
       }
       p.style.textAlign = "";
     }
