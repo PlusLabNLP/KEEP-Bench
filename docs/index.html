@@ -309,6 +309,7 @@ footer { padding-block: 56px 40px; color: var(--muted); font-size: var(--step--1
 }
 @media (prefers-reduced-motion: reduce) {
   .wordmark::before { animation: none; }
+  .kcard, .kcard .go { transition: none; }
   .pane, .check, .props li .tag { transition: none; }
 }
 
@@ -384,13 +385,16 @@ header.title .btn[aria-disabled="true"] { background: transparent; color: var(--
 }
 
 /* abstract: lead + key findings, full text on demand */
-.abs-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 44px; align-items: start; }
-.abs-lead { font-size: 1.32rem; line-height: 1.5; color: var(--ink); letter-spacing: -0.005em; }
-.findings { list-style: none; margin: 0; padding: 0; }
-.findings li { display: grid; grid-template-columns: 6.6rem minmax(0, 1fr); gap: 16px; align-items: baseline; padding: 11px 0; border-top: 1px solid var(--rule); }
-.findings li:last-child { border-bottom: 1px solid var(--rule); }
-.findings b { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.01em; white-space: nowrap; }
-.findings span { color: var(--muted); }
+.abs-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 44px; align-items: center; }
+.abs-lead { font-size: 1.45rem; line-height: 1.5; color: var(--ink); letter-spacing: -0.005em; }
+.kcards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.kcard { position: relative; display: grid; grid-template-rows: auto auto 1fr; gap: 2px; padding: 14px 16px 12px; border: 1px solid var(--rule); border-radius: 12px; background: var(--sheet); color: var(--ink); text-decoration: none; transition: border-color .2s ease, transform .2s ease; }
+.kcard:hover { border-color: var(--ink); transform: translateY(-1px); }
+.kcard .val { font-size: 2rem; font-weight: 800; letter-spacing: -0.025em; line-height: 1.1; white-space: nowrap; }
+.kcard .cap { color: var(--muted); font-size: 0.9rem; line-height: 1.35; }
+.kcard svg { width: 100%; height: auto; margin-top: 8px; overflow: visible; align-self: end; }
+.kcard .go { position: absolute; top: 12px; right: 14px; color: var(--muted); font-size: 0.9rem; transition: transform .2s ease; }
+.kcard:hover .go { transform: translateY(2px); color: var(--ink); }
 .abs-full summary { cursor: pointer; font-weight: 600; color: var(--accent); width: max-content; }
 .abs-cols { columns: 2; column-gap: 44px; margin-top: 14px; color: var(--muted); font-size: 0.98rem; }
 .abs-cols p { margin: 0 0 12px; }
@@ -432,7 +436,7 @@ header.title .btn[aria-disabled="true"] { background: transparent; color: var(--
 .xf .xf-stack::after { inset: -5.4px -4px 5.4px 4px; background: #f2f7ef; z-index: -2; }
 @media (max-width: 900px) { .abs-grid { grid-template-columns: 1fr; gap: 24px; } }
 @media (max-width: 1099px) { .abs-cols { columns: auto; } }
-@media (max-width: 520px) { .xf .xf-chains { grid-template-columns: 1fr; } .findings li { grid-template-columns: 1fr; gap: 2px; } }
+@media (max-width: 520px) { .xf .xf-chains { grid-template-columns: 1fr; } .kcards { gap: 10px; } .kcard { padding: 12px 12px 10px; } .kcard .val { font-size: 1.5rem; } .kcard .cap { font-size: 0.84rem; } .kcard svg text { display: none; } }
 
 /* evidence position */
 .pos-schema { display: grid; gap: 8px; }
@@ -458,6 +462,10 @@ section.block > .lede, section.block > .note, .teaser > .caption, .abs-cols p { 
 .why-points { display: grid; gap: 22px; align-content: start; }
 .why-pt { display: grid; gap: 6px; }
 .why-pt h3 { font-size: var(--step-1); }
+/* section heads: a small label naming the part, then the claim */
+.sec-head { display: grid; gap: 8px; }
+.kicker { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: var(--accent); }
+.sec-head h2 { font-size: clamp(1.6rem, 3.2vw, 2.1rem); line-height: 1.18; }
 </style>
 
 </head>
@@ -601,19 +609,19 @@ section.block > .lede, section.block > .note, .teaser > .caption, .abs-cols p { 
       <button type="button" data-go="4" aria-pressed="true"><span class="n">4</span>KEEP-Bench</button>
       <button type="button" id="replay">Replay</button>
     </div>
-    <p class="caption" id="fig-cap"><b>Figure 1.</b> Comparison of indirect evaluation and direct evidence evaluation on a simplified KEEP-Bench case. The upper branch shows indirect evaluation through downstream QA, which considers only the final answer and may therefore falsely accept an unfaithful compressed context. The lower branch shows KEEP-Bench’s direct evidence evaluation, which independently checks whether each reference evidence proposition is entailed by the compressed context, thereby detecting the preservation failure.</p>
+    <p class="caption" id="fig-cap"><b>Figure 1.</b> Downstream QA checks only the final answer, so an unfaithful compression that still yields the right answer passes. KEEP-Bench checks each evidence proposition against the compressed context and catches the loss.</p>
   </section>
 
   <section class="block" aria-labelledby="abs-title">
     <h2 id="abs-title">Abstract</h2>
     <div class="abs-grid">
-      <p class="abs-lead">Context compression can drop evidence that a question needs, and QA metrics underestimate the loss because a reader can still answer correctly from an unfaithful compression. <span style="white-space:nowrap">KEEP-Bench</span> checks the compressed context directly, on 4,102 cases that require keeping plausible reference resolutions, explicit qualifiers and minority perspectives.</p>
-      <ul class="findings">
-        <li><b>66.8%</b><span>Even with tailored prompting, the best open-weight model (31B) keeps all required evidence in only 66.8% of cases on 3.1K-token inputs. The best proprietary model reaches 61.6%.</span></li>
-        <li><b>Structure</b><span>Performance varies sharply across evidence structures, so conclusions from limited structures may be biased.</span></li>
-        <li><b>EPR</b><span>Evidence Preservation Return relates recall to inference FLOPs. It peaks at moderate scales <span style="white-space:nowrap">(4B–8B)</span>, where recall remains low.</span></li>
-        <li><b>Budget</b><span>A larger output budget mainly helps already strong models and widens the gap, yet their stronger preservation comes at a steep computational cost.</span></li>
-      </ul>
+      <p class="abs-lead">Context compression can introduce faithfulness issues through an information bottleneck, and QA metrics miss them. <span style="white-space:nowrap">KEEP-Bench</span> checks the compressed context itself, on 4,102 cases that require keeping <em>plausible reference resolutions</em>, <em>explicit qualifiers</em> and <em>minority perspectives</em>.</p>
+      <div class="kcards">
+        <a class="kcard" href="#results" aria-label="Even the best model keeps every required evidence proposition in only 66.8% of cases. Go to the main results."><span class="val">66.8%</span><span class="cap">of cases fully preserved, even by the best model</span><svg viewBox="0 0 200 72" aria-hidden="true"><rect x="0" y="34" width="200" height="9" rx="4.5" fill="var(--rule)"/><rect x="0" y="34" width="133.6" height="9" rx="4.5" fill="var(--accent)"/><text x="0" y="58" font-size="8.5" fill="var(--muted)" font-family="var(--font-ui)">0</text><text x="200" y="58" text-anchor="end" font-size="8.5" fill="var(--muted)" font-family="var(--font-ui)">100%</text></svg><span class="go" aria-hidden="true">↓</span></a>
+        <a class="kcard" href="#results" aria-label="Rankings change across settings: GPT-5.4-mini ranks third on science but ninth on policy, and Llama-3.1-8B ranks thirteenth on science but fifth on policy. Go to the main results."><span class="val">Ranks shift</span><span class="cap">All-Rec of 17 compressors in each setting</span><svg viewBox="0 0 200 72" aria-hidden="true"><line x1="70" x2="70" y1="2" y2="61" stroke="var(--rule)"/><line x1="110" x2="110" y1="2" y2="61" stroke="var(--rule)"/><line x1="150" x2="150" y1="2" y2="61" stroke="var(--rule)"/><line x1="190" x2="190" y1="2" y2="61" stroke="var(--rule)"/><polyline fill="none" stroke="var(--muted)" stroke-opacity=".28" stroke-width="1" points="70.0,62.0 110.0,60.9 150.0,61.8 190.0,62.0"/><polyline fill="none" stroke="var(--muted)" stroke-opacity=".28" stroke-width="1" points="70.0,62.0 110.0,46.1 150.0,61.7 190.0,62.0"/><polyline fill="none" stroke="var(--muted)" stroke-opacity=".28" stroke-width="1" points="70.0,60.9 110.0,60.0 150.0,52.9 190.0,58.8"/><polyline fill="none" stroke="var(--muted)" stroke-opacity=".28" stroke-width="1" points="70.0,59.6 110.0,58.4 150.0,53.6 190.0,55.9"/><polyline fill="none" stroke="var(--muted)" stroke-opacity=".28" stroke-width="1" points="70.0,62.0 110.0,61.9 150.0,61.8 190.0,61.1"/><polyline fill="none" stroke="var(--muted)" stroke-opacity=".28" stroke-width="1" points="70.0,59.8 110.0,56.6 150.0,60.8 190.0,55.1"/><polyline fill="none" stroke="var(--muted)" stroke-opacity=".28" stroke-width="1" points="70.0,50.5 110.0,40.7 150.0,50.5 190.0,45.2"/><polyline fill="none" stroke="var(--muted)" stroke-opacity=".28" stroke-width="1" points="70.0,43.0 110.0,38.6 150.0,49.8 190.0,38.2"/><polyline fill="none" stroke="var(--muted)" stroke-opacity=".28" stroke-width="1" points="70.0,35.6 110.0,27.5 150.0,43.4 190.0,36.1"/><polyline fill="none" stroke="var(--muted)" stroke-opacity=".28" stroke-width="1" points="70.0,28.3 110.0,26.3 150.0,37.0 190.0,29.6"/><polyline fill="none" stroke="var(--muted)" stroke-opacity=".28" stroke-width="1" points="70.0,60.2 110.0,55.4 150.0,57.3 190.0,58.7"/><polyline fill="none" stroke="var(--muted)" stroke-opacity=".28" stroke-width="1" points="70.0,42.3 110.0,39.7 150.0,44.3 190.0,42.5"/><polyline fill="none" stroke="var(--muted)" stroke-opacity=".28" stroke-width="1" points="70.0,26.9 110.0,18.4 150.0,11.4 190.0,20.3"/><polyline fill="none" stroke="var(--muted)" stroke-opacity=".28" stroke-width="1" points="70.0,15.9 110.0,5.0 150.0,6.1 190.0,9.4"/><polyline fill="none" stroke="var(--fam-prop)" stroke-width="2.2" stroke-linejoin="round" points="70.0,11.0 110.0,6.0 150.0,25.6 190.0,10.0"/><circle cx="70" cy="11.0" r="2.3" fill="var(--fam-prop)"/><circle cx="110" cy="6.0" r="2.3" fill="var(--fam-prop)"/><circle cx="150" cy="25.6" r="2.3" fill="var(--fam-prop)"/><circle cx="190" cy="10.0" r="2.3" fill="var(--fam-prop)"/><text x="62" y="14.0" text-anchor="end" font-size="8.5" fill="var(--muted)" font-family="var(--font-ui)">Claude</text><polyline fill="none" stroke="var(--fam-prop)" stroke-width="2.2" stroke-dasharray="3 2.5" stroke-linejoin="round" points="70.0,36.5 110.0,32.4 150.0,13.8 190.0,43.9"/><circle cx="70" cy="36.5" r="2.3" fill="var(--fam-prop)"/><circle cx="110" cy="32.4" r="2.3" fill="var(--fam-prop)"/><circle cx="150" cy="13.8" r="2.3" fill="var(--fam-prop)"/><circle cx="190" cy="43.9" r="2.3" fill="var(--fam-prop)"/><text x="62" y="39.5" text-anchor="end" font-size="8.5" fill="var(--muted)" font-family="var(--font-ui)">GPT-mini</text><polyline fill="none" stroke="var(--fam-llama)" stroke-width="2.2" stroke-linejoin="round" points="70.0,51.6 110.0,43.2 150.0,58.7 190.0,34.4"/><circle cx="70" cy="51.6" r="2.3" fill="var(--fam-llama)"/><circle cx="110" cy="43.2" r="2.3" fill="var(--fam-llama)"/><circle cx="150" cy="58.7" r="2.3" fill="var(--fam-llama)"/><circle cx="190" cy="34.4" r="2.3" fill="var(--fam-llama)"/><text x="62" y="54.6" text-anchor="end" font-size="8.5" fill="var(--muted)" font-family="var(--font-ui)">Llama-8B</text><text x="70" y="71" text-anchor="middle" font-size="8.5" fill="var(--muted)" font-family="var(--font-ui)">Parallel</text><text x="110" y="71" text-anchor="middle" font-size="8.5" fill="var(--muted)" font-family="var(--font-ui)">Cond.</text><text x="150" y="71" text-anchor="middle" font-size="8.5" fill="var(--muted)" font-family="var(--font-ui)">Science</text><text x="190" y="71" text-anchor="middle" font-size="8.5" fill="var(--muted)" font-family="var(--font-ui)">Policy</text></svg><span class="go" aria-hidden="true">↓</span></a>
+        <a class="kcard" href="#compute" aria-label="Preservation per FLOP peaks at 4B to 8B models in every family. Go to the compute section."><span class="val">4B–8B</span><span class="cap">where recall per FLOP peaks</span><svg viewBox="0 0 200 72" aria-hidden="true"><rect x="84.0" y="1" width="32.0" height="68" fill="var(--accent)" opacity=".12"/><polyline fill="none" stroke="var(--fam-llama)" stroke-width="1.6" points="20.0,59.3 70.7,43.8 116.0,34.2"/><circle cx="20.0" cy="59.3" r="1.7" fill="var(--fam-llama)"/><circle cx="70.7" cy="43.8" r="1.7" fill="var(--fam-llama)"/><circle cx="116.0" cy="34.2" r="3.2" fill="var(--fam-llama)"/><polyline fill="none" stroke="var(--fam-qwen)" stroke-width="1.6" points="84.0,28.7 116.0,30.5 141.8,34.5 180.0,45.3"/><circle cx="84.0" cy="28.7" r="3.2" fill="var(--fam-qwen)"/><circle cx="116.0" cy="30.5" r="1.7" fill="var(--fam-qwen)"/><circle cx="141.8" cy="34.5" r="1.7" fill="var(--fam-qwen)"/><circle cx="180.0" cy="45.3" r="1.7" fill="var(--fam-qwen)"/><polyline fill="none" stroke="var(--fam-gemma)" stroke-width="1.6" points="52.0,31.4 84.0,8.0 134.7,14.5 178.5,32.0"/><circle cx="52.0" cy="31.4" r="1.7" fill="var(--fam-gemma)"/><circle cx="84.0" cy="8.0" r="3.2" fill="var(--fam-gemma)"/><circle cx="134.7" cy="14.5" r="1.7" fill="var(--fam-gemma)"/><circle cx="178.5" cy="32.0" r="1.7" fill="var(--fam-gemma)"/></svg><span class="go" aria-hidden="true">↓</span></a>
+        <a class="kcard" href="#budget" aria-label="From 0.5 to 2 times the budget, the All-Rec gap between the best and worst LLM grows from 45 to 76 points. Go to the budget section."><span class="val">45 → 76</span><span class="cap">point gap, best vs. worst LLM, from 0.5× to 2× budget</span><svg viewBox="0 0 200 72" aria-hidden="true"><polygon points="30.0,30.3 95.0,16.1 160.0,7.6 160.0,61.1 95.0,61.9 30.0,61.9" fill="var(--accent)" opacity=".12"/><line x1="30" x2="30" y1="30.3" y2="61.9" stroke="var(--accent)" stroke-width="1.2" stroke-dasharray="2 2"/><text x="25" y="49.1" text-anchor="end" font-size="10" font-weight="700" fill="var(--accent)" font-family="var(--font-ui)">45</text><line x1="160" x2="160" y1="7.6" y2="61.1" stroke="var(--accent)" stroke-width="1.2" stroke-dasharray="2 2"/><text x="165" y="37.4" text-anchor="start" font-size="10" font-weight="700" fill="var(--accent)" font-family="var(--font-ui)">76</text><polyline fill="none" stroke="var(--fam-gemma)" stroke-width="2" points="30.0,30.3 95.0,16.1 160.0,7.6"/><circle cx="30" cy="30.3" r="2.4" fill="var(--fam-gemma)"/><circle cx="95" cy="16.1" r="2.4" fill="var(--fam-gemma)"/><circle cx="160" cy="7.6" r="2.4" fill="var(--fam-gemma)"/><polyline fill="none" stroke="var(--fam-llama)" stroke-width="2" points="30.0,61.9 95.0,61.9 160.0,61.1"/><circle cx="30" cy="61.9" r="2.4" fill="var(--fam-llama)"/><circle cx="95" cy="61.9" r="2.4" fill="var(--fam-llama)"/><circle cx="160" cy="61.1" r="2.4" fill="var(--fam-llama)"/><text x="95" y="11.1" text-anchor="middle" font-size="8.5" fill="var(--muted)" font-family="var(--font-ui)">Gemma-4-31B</text><text x="95" y="71" text-anchor="middle" font-size="8.5" fill="var(--muted)" font-family="var(--font-ui)">Llama-3.2-1B</text></svg><span class="go" aria-hidden="true">↓</span></a>
+      </div>
     </div>
     <details class="abs-full">
       <summary>Read the full abstract</summary>
@@ -627,29 +635,28 @@ section.block > .lede, section.block > .note, .teaser > .caption, .abs-cols p { 
   </section>
 
   <section class="block" aria-labelledby="why-title">
-    <h2 id="why-title">Why check the evidence directly</h2>
+    <div class="sec-head"><p class="kicker">Pilot study</p><h2 id="why-title">Correct answers can hide lost evidence</h2></div>
     <div class="split">
       <div class="why-points">
         <div class="why-pt">
-          <h3>Faithful compression matters</h3>
-          <p class="lede">In a pilot on 200 parallel cases, a reader answers both questions correctly in 96.0% of cases from faithful compressions, on par with the full context, but in only 11.5% from unfaithful ones. Lost evidence costs 84.5 points of accuracy, so faithfulness directly limits what a reader can do.</p>
+          <h3>Lost evidence hurts the reader</h3>
+          <p class="lede">On 200 parallel cases, a reader answers correctly in 96.0% of cases from faithful compressions but in only 11.5% from unfaithful ones.</p>
         </div>
         <div class="why-pt">
-          <h3>QA metrics miss part of the loss</h3>
-          <p class="lede">Those 11.5%, 23 of the 200 cases, still count as correct even though required evidence is gone. Answer accuracy therefore underestimates evidence loss, so KEEP-Bench checks the compressed context itself.</p>
+          <h3>Yet QA accuracy misses part of it</h3>
+          <p class="lede">Those 23 cases pass QA even though required evidence is gone, so KEEP-Bench checks the compressed context itself.</p>
         </div>
       </div>
       <div class="chart-card" style="display:grid;gap:16px">
         <h3>Reader answers both questions correctly</h3>
         <div class="bars" id="pilot"></div>
-        <p class="note">Pilot study on 200 parallel cases. A case counts as correct only when the reader matches both gold answers.</p>
+        <p class="note">A case is correct only if the reader matches both gold answers.</p>
       </div>
     </div>
   </section>
 
   <section class="block" id="settings" aria-labelledby="set-title">
-    <h2 id="set-title">Three evidence structures</h2>
-    <p class="lede">Each setting targets an evidence structure that single-path QA leaves untested.</p>
+    <div class="sec-head"><p class="kicker">Benchmark</p><h2 id="set-title">Single-path QA leaves three evidence structures untested</h2></div>
     <div class="stats">
       <div class="stat"><b>4,102</b><span>cases</span></div>
       <div class="stat"><b>3.1K</b><span>tokens per context on average</span></div>
@@ -666,9 +673,9 @@ section.block > .lede, section.block > .note, .teaser > .caption, .abs-cols p { 
       <div class="struct" role="tabpanel" id="panel-par" aria-labelledby="tab-par">
         <div class="desc">
           <h3>Keep both interpretations</h3>
-          <p>Each case contains underspecified entity mentions whose referents differ between two valid interpretations. Each interpretation induces its own reasoning chain with disjoint referents and evidence, so the compression has to keep both.</p>
-          <p class="meta">900 cases: 400 two-hop, 300 three-hop, 200 four-hop. Built from MuSiQue with fictionalized entities, so omitted evidence cannot be recovered from memory. Average 22.8 paragraphs and 2,799 tokens.</p>
-          <p class="meta">Para-Rec counts a case when the evidence that tells the two interpretations apart survives compression. All-Rec needs every proposition in both chains.</p>
+          <p>Underspecified mentions admit two valid interpretations, each with its own reasoning chain, so a faithful compression must keep both.</p>
+          <p class="meta">900 cases, two to four hops, built from MuSiQue with fictional entities so lost evidence cannot be recalled from memory.</p>
+          <p class="meta">Para-Rec: the evidence that separates the two interpretations survives. All-Rec: every proposition in both chains survives.</p>
         </div>
         <div class="example xf">
           <div class="xf-title">Parallel Evidence</div>
@@ -685,9 +692,9 @@ section.block > .lede, section.block > .note, .teaser > .caption, .abs-cols p { 
       <div class="struct" role="tabpanel" id="panel-con" aria-labelledby="tab-con" hidden>
         <div class="desc">
           <h3>Keep the qualifier</h3>
-          <p>One reasoning step holds only under an explicit qualifier, and the context says the step fails when the condition is unmet. Dropping the qualifier turns a conditional claim into an unconditional one.</p>
-          <p class="meta">1,364 cases: 604 two-hop, 493 three-hop, 267 four-hop. Average 21.0 paragraphs and 2,544 tokens.</p>
-          <p class="meta">Cond-Rec counts a case when the qualifier is kept. All-Rec needs the qualifier and every hop.</p>
+          <p>One step holds only under an explicit qualifier. Dropping the qualifier turns a conditional claim into an unconditional one.</p>
+          <p class="meta">1,364 cases, two to four hops.</p>
+          <p class="meta">Cond-Rec: the qualifier survives. All-Rec: the qualifier and every hop survive.</p>
         </div>
         <div class="example xf">
           <div class="xf-title">Conditional Evidence</div>
@@ -703,9 +710,9 @@ section.block > .lede, section.block > .note, .teaser > .caption, .abs-cols p { 
       <div class="struct" role="tabpanel" id="panel-imb" aria-labelledby="tab-imb" hidden>
         <div class="desc">
           <h3>Keep the minority view</h3>
-          <p>Open-ended questions have several valid perspectives. Dominant perspectives get whole paragraphs of support; each minority perspective appears in a single sentence but is equally required.</p>
-          <p class="meta">1,838 cases from retrieved web documents: 1,010 science (856 with four perspectives, 154 with three) and 828 policy. Average 9.8 paragraphs and 3,577 tokens.</p>
-          <p class="meta">All-Rec needs every perspective, major and minor.</p>
+          <p>Dominant perspectives fill whole paragraphs; each minority perspective gets a single sentence yet is equally required.</p>
+          <p class="meta">1,838 cases from web documents: 1,010 science and 828 policy.</p>
+          <p class="meta">All-Rec: every perspective survives, whether major or minor.</p>
           <div class="seg" role="group" aria-label="Domain">
             <button type="button" data-dom="sci" aria-pressed="true">Science</button>
             <button type="button" data-dom="pol" aria-pressed="false">Policy</button>
@@ -737,8 +744,8 @@ section.block > .lede, section.block > .note, .teaser > .caption, .abs-cols p { 
   </section>
 
   <section class="block" id="results" aria-labelledby="res-title">
-    <h2 id="res-title">Results</h2>
-    <p class="lede">All runs use the default sentence budget. All-Rec counts a case only if every evidence proposition survives.</p>
+    <div class="sec-head"><p class="kicker">Main results</p><h2 id="res-title">No compressor reliably keeps all the evidence</h2></div>
+    <p class="lede">The best model keeps every proposition in only 66.8% of cases, and the leader changes with the structure: Claude-Haiku-4.5 is first on parallel evidence but trails GPT-5.4-mini on science.</p>
     <div class="controls">
       <span class="ctl-label" id="flt-label">Show</span>
       <div class="seg" role="group" aria-labelledby="flt-label" id="filter">
@@ -757,15 +764,15 @@ section.block > .lede, section.block > .note, .teaser > .caption, .abs-cols p { 
         <tbody id="lb-body"></tbody>
       </table>
     </div>
-    <p class="note">Percentages are All-Rec unless marked Para-Rec or Cond-Rec. Overall is All-Rec over all 4,102 cases. Green underline marks the best value in each column. RECOMP (abstractive) has no length control. EPR (Evidence Preservation Return) is 6·√(A/F), where A is overall All-Rec in percent and F is average inference TFLOPs per case; it is not reported for API models, whose compute is unknown.</p>
+    <p class="note">Default budget for all runs; RECOMP (abstractive) has no length control. Values are All-Rec unless marked, Overall spans all 4,102 cases, and a green underline marks the best in each column. EPR (Evidence Preservation Return) is 6·√(A/F), with A the overall All-Rec in percent and F the average TFLOPs per case; API models have no FLOP estimate.</p>
   </section>
 
-  <section class="block" aria-labelledby="epr-title">
-    <h2 id="epr-title">Preservation per unit of compute</h2>
+  <section class="block" id="compute" aria-labelledby="epr-title">
+    <div class="sec-head"><p class="kicker">Compute</p><h2 id="epr-title">No compressor is both cheap and faithful</h2></div>
     <div class="split">
       <div style="display:grid;gap:16px;align-content:start">
-        <p class="lede">Each method is placed by its overall All-Rec and its average inference compute. Points on the same dashed curve share an EPR, and moving up or to the left raises it.</p>
-        <p class="lede">Scaling a model family raises recall but not in proportion to compute, so EPR peaks at moderate sizes. The most efficient method, RECOMP (extractive), preserves all evidence in fewer than 5% of cases.</p>
+        <p class="lede">Larger models keep more evidence, but compute grows faster than recall, so EPR peaks at moderate sizes. The cheapest method, RECOMP (extractive), keeps all evidence in under 5% of cases.</p>
+        <p class="note">Each point is one method. Points on a dashed curve share an EPR; up and to the left is better.</p>
         <div class="legend" id="fam-legend"></div>
       </div>
       <div class="chart-card">
@@ -775,17 +782,17 @@ section.block > .lede, section.block > .note, .teaser > .caption, .abs-cols p { 
     </div>
   </section>
 
-  <section class="block" aria-labelledby="bud-title">
-    <h2 id="bud-title">More output budget widens the gap</h2>
-    <p class="lede">A larger sentence budget helps the strongest models most, while the weakest stay low at every budget.</p>
+  <section class="block" id="budget" aria-labelledby="bud-title">
+    <div class="sec-head"><p class="kicker">Output budget</p><h2 id="bud-title">A bigger budget mostly helps models that are already strong</h2></div>
+    <p class="lede">The weakest models stay low at every budget, so extra budget widens the gap instead of closing it.</p>
     <div class="chips" id="bud-chips" role="group" aria-label="Highlight methods"></div>
     <div class="panels" id="bud-panels"></div>
-    <p class="note">All-Rec at 0.5×, 1× and 2× the default sentence budget, with imbalanced pooling science and policy. Highlighted lines follow the paper's selection; click a name above to add or remove one. Dashed lines are dedicated compressors, and hovering a point shows the average output length.</p>
+    <p class="note">All-Rec at 0.5×, 1× and 2× the default budget; imbalanced pools science and policy. Click a name to toggle its line. Dashed lines are dedicated compressors.</p>
   </section>
 
   <section class="block" id="position" aria-labelledby="pos-title">
-    <h2 id="pos-title">Where the evidence sits</h2>
-    <p class="lede">We move the two evidence blocks of the 400 two-hop parallel cases next to each other, about half the context apart, or to opposite ends, then compress every version with three models at the default budget. Absolute placement had no consistent effect, so both charts average over it and over block order.</p>
+    <div class="sec-head"><p class="kicker">Evidence position</p><h2 id="pos-title">Compressors favor nearby and earlier evidence</h2></div>
+    <p class="lede">We place the two evidence blocks of the 400 two-hop parallel cases side by side, about half the context apart, or at opposite ends, and compress each version with three models.</p>
     <div class="pos-schema" aria-label="The three distance conditions">
       <div class="pos-row"><span class="pos-name">Adjacent</span><div class="pos-strip" data-a="8" data-b="10"></div></div>
       <div class="pos-row"><span class="pos-name">Middle</span><div class="pos-strip" data-a="3" data-b="13"></div></div>
@@ -797,18 +804,19 @@ section.block > .lede, section.block > .note, .teaser > .caption, .abs-cols p { 
         <div class="pos-head"><h3>Separated evidence is kept together less often</h3>
           <div class="seg" role="group" aria-label="Metric" id="pos-metric"><button type="button" data-m="para" aria-pressed="true">Para-Rec</button><button type="button" data-m="all" aria-pressed="false">All-Rec</button></div></div>
         <svg class="chart" id="pos-dist" viewBox="0 0 520 300" role="img" aria-label="Para-Rec or All-Rec at three distances for three models"></svg>
-        <p class="note">From Adjacent to Middle, all three models lose 2.1 to 8.5 points of Para‑Rec. Gemma-4-E4B-it recovers at Distant, possibly because the context boundaries draw extra attention.</p>
+        <p class="note">From Adjacent to Middle, all three models lose 2.1 to 8.5 points of Para‑Rec, and Gemma-4-E4B-it recovers at Distant. Both charts average over absolute placement and block order.</p>
       </div>
       <div class="chart-card pos-card">
         <div class="pos-head"><h3>Evidence that comes first is kept more often</h3></div>
         <svg class="chart" id="pos-order" viewBox="0 0 520 300" role="img" aria-label="Recall of the first proposition when its block comes earlier or later"></svg>
-        <p class="note">Recall of each chain's first proposition when its block comes earlier (filled) or later (open). Earlier wins by 2.5 to 10.6 points in every case except Gemma-4-E4B-it at Distant.</p>
+        <p class="note">Recall of each chain's first proposition when its block comes earlier (filled) or later (open). Earlier wins by 2.5 to 10.6 points; the one exception is Gemma-4-E4B-it at Distant.</p>
       </div>
     </div>
   </section>
 
   <section class="block" id="case" aria-labelledby="case-title">
-    <h2 id="case-title">One case, seventeen compressors</h2>
+    <div class="sec-head"><p class="kicker">Case study</p><h2 id="case-title">Most compressors keep the answers but break the reasoning chains</h2></div>
+    <p class="lede">Only Claude-Haiku-4.5 keeps all four propositions. Ten of the other sixteen keep both counties, so the answers survive, but lose the statements that tie each series to its state.</p>
     <div class="case">
       <div style="display:grid;gap:14px">
         <div class="rid">parallel_2hop_0241</div>
@@ -837,7 +845,7 @@ section.block > .lede, section.block > .note, .teaser > .caption, .abs-cols p { 
   </section>
 
   <section class="block" aria-labelledby="use-title">
-    <h2 id="use-title">Use KEEP-Bench</h2>
+    <div class="sec-head"><p class="kicker">Resources</p><h2 id="use-title">Use KEEP-Bench</h2></div>
     <div class="res">
       <a href="https://huggingface.co/datasets/uclanlp/KEEP-Bench"><b>Dataset</b><span>4,102 cases with evidence propositions. Gated access under CC BY-NC 4.0.</span></a>
       <a href="https://github.com/PlusLabNLP/KEEP-Bench"><b>Code</b><span>Compressors, the GPT-5.2 judge, scoring and FLOP estimates. MIT license.</span></a>
@@ -1491,7 +1499,7 @@ section.block > .lede, section.block > .note, .teaser > .caption, .abs-cols p { 
 
   /* ---------- keep paragraphs from ending on a stub line ---------- */
   (function () {
-    var SEL = ".lede, .note, .caption, .struct .desc p, .output-note, .findings span, .abs-lead, .abs-cols p, .stat span";
+    var SEL = ".lede, .note, .caption, .struct .desc p, .output-note, .kcard .cap, .abs-lead, .abs-cols p, .stat span";
     var orig = new Map();
     function lineWidths(p) {
       var r = document.createRange(); r.selectNodeContents(p);
@@ -1535,12 +1543,12 @@ section.block > .lede, section.block > .note, .teaser > .caption, .abs-cols p { 
       if (!p.offsetParent) return;
       var just = getComputedStyle(p).textAlign === "justify";
       p.style.textAlign = "left";
-      var pw = p.getBoundingClientRect().width, lw = lineWidths(p), ok = true, minLast = just ? 0.22 : 0.3;
+      var pw = p.getBoundingClientRect().width, lw = lineWidths(p), ok = true, minLast = just ? 0.22 : 0.24;
       if (lw.length >= 2 && lw[lw.length - 1] / pw < minLast) {
         ok = false;
         for (var k = 1; k <= 13 && bind(nodes, k); k++) {
           var w = lineWidths(p);
-          if (w.length === lw.length && w[w.length - 1] / pw >= minLast - 0.03 && w[w.length - 2] / pw >= (just ? 0.7 : 0.5)) { ok = true; break; }
+          if (w.length === lw.length && w[w.length - 1] / pw >= minLast - 0.03 && w[w.length - 2] / pw >= (just ? 0.7 : 0.72)) { ok = true; break; }
         }
         if (!ok) bind(nodes, 0);
       }
